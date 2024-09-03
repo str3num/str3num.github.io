@@ -1,3 +1,3 @@
 document.querySelector("img").addEventListener("click", function () {
-    alert("色色！");
+    alert("学习！");
   });
