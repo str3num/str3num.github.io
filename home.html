@@ -10,16 +10,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-    <style>
-        @font-face {
-            font-family: 'pixelfont';
-            src: url('font/fusion-pixel-10px-monospaced-zh_hans.ttf');
-        }
-        body{
-            font-family: 'pixelfont';
-        }
-    </style>
-    <link href="styles/style.css" rel="stylesheet" />
+
+    <link href="message/style.css" rel="stylesheet" />
 </head>
 
 <body>
@@ -33,6 +25,19 @@
         />
     </div>
     <p id="001">answer is 42!</p>
+
+    <div class="chat-container">
+        <div class="chat-display">
+            <!-- 对话展示框将在这里 -->
+        </div>
+        <div class="chat-input">
+            <input type="text" id="message-input" placeholder="请输入内容">
+            <button id="submit-btn">发送</button>
+        </div>
+    </div>
+
+    <script src="message/script.js"></script>
+
     <script src="scripts/main.js" defer></script>
 </body>
 

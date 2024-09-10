@@ -1,0 +1,54 @@
+/* 设置基本样式 */
+p {
+    font-size: 5cap;
+    text-align:center;
+    color: #694959;
+  }
+
+
+@font-face {
+      font-family: 'pixelfont';
+      src: url('font/fusion-pixel-10px-monospaced-zh_hans.ttf');
+}
+body{
+      font-family: 'pixelfont';
+}
+
+.chat-container {
+    max-width: 500px;
+    margin: 20px auto;
+    border: 0px solid #ff0000;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.chat-display {
+    padding: 10px;
+    background-color: #ffffff;
+    height: 300px;
+    overflow-y: scroll;
+}
+
+.chat-input {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.chat-input input {
+    flex-grow: 1;
+    margin-right: 10px;
+    padding: 5px;
+    border: 1px solid #591414;
+    border-radius: 5px;
+}
+
+.chat-input button {
+    padding: 5px 10px;
+    background-color: #7f3d37;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
