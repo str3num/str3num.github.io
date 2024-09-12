@@ -17,7 +17,7 @@ function sendMessage() {
     
     // 设置消息内容和样式
     newMessage.innerHTML = message;
-    newMessage.style.backgroundColor = '#428bca';
+    newMessage.style.backgroundColor = '#591414';
     newMessage.style.color = 'white';
     newMessage.style.padding = '5px 10px';
     newMessage.style.marginBottom = '10px';
