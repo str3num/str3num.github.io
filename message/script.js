@@ -41,7 +41,7 @@ function sendMessage() {
 
     // 设置回答内容和样式
     AnswerMessage.innerHTML = str;
-    AnswerMessage.style.backgroundColor = '#428bca';
+    AnswerMessage.style.backgroundColor = '#7a4242';
     AnswerMessage.style.color = 'white';
     AnswerMessage.style.padding = '5px 10px';
     AnswerMessage.style.marginBottom = '10px';
