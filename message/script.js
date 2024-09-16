@@ -103,6 +103,7 @@ function sendMessage() {
     newMessage.style.padding = '5px 10px';
     newMessage.style.marginBottom = '10px';
     newMessage.style['text-align'] = 'right';
+    newMessage.scrollIntoView({ behavior: 'smooth' });
 
     // 将消息添加到对话展示框中
     chatDisplay.appendChild(newMessage);
