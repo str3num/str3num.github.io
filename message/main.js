@@ -9,15 +9,23 @@ submitBtn.addEventListener('click', sendMessage);
 // 定义函数：发送消息
 function sendMessage() {
     // 获取输入的消息内容
-    const message = messageInput.value;
+    let message = messageInput.value;
 
     if (messageInput.value==='')
     {
         linkMessage() //调用linkMessage函数
     }
     else
-    {
-        AIAnswer(message) //调用AIAnswer函数
+    { 
+        sendMessage(message) //调用sendMessage函数
+        var str = message;
+        str = str.replace("吗", "");
+        str = str.replace("？", "！");
+        str = str.replace("? ", "! ");
+        str = str.replace("?", "!");
+        str = str.replace("你", "我");
+        message = str.replace("我好", "你好");
+        answerMessage(message) //调用sendMessage函数
     }
     
     // 清空输入框
