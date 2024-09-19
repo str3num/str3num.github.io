@@ -19,6 +19,7 @@ function sendMessage() {
     { 
         sendMessage(message) //调用sendMessage函数
         var str = message;
+        //估值一个亿的ai代码
         str = str.replace("吗", "");
         str = str.replace("？", "！");
         str = str.replace("? ", "! ");
