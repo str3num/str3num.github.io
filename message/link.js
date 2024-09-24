@@ -20,6 +20,6 @@ function linkMessage()
             var randomNumber = Math.floor(Math.random()*quotes.length)
             var message = quotes[randomNumber];
             //创建回答元素
-            answerMessage(message);
+            speed50(message);
     },1000);
 }

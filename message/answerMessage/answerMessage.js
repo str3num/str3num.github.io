@@ -1,4 +1,4 @@
-function answerMessage(message) {
+function answerMessage(speed,message) {
         // 创建一个新的回答元素
         const AnswerMessage = document.createElement('div');
         AnswerMessage.classList.add('message');
@@ -23,7 +23,7 @@ function answerMessage(message) {
                 // 每次添加新内容后滚动页面到对话框
                 AnswerMessage.scrollIntoView({ behavior: 'smooth' });
                 // 每隔 500 毫秒输出下一个字符
-            setTimeout(printCharacter, 50);
+            setTimeout(printCharacter, speed);
             }
         }
         // 开始逐个字符输出

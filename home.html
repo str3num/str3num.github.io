@@ -33,12 +33,44 @@
             <button id="submit-btn">发送</button>
         </div>
     </div>
+
+    <script>
+        const placeholders = ["今天过得怎么样？", "努力学习了吗？", "11111111111111"];
+        let index = 0;
+
+        function changePlaceholder() {
+            const inputField = document.getElementById('message-input');
+            var text = placeholders[index];
+            inputField.placeholder = "";
+
+            let i = 0;
+            function qwer() {
+            if (i < text.length) {
+                // 将下一个字符追加到输出中
+                inputField.placeholder += text[i];
+                i++;
+                // 每隔 500 毫秒输出下一个字符
+            setTimeout(qwer, 50);
+            }
+        }
+        // 开始逐个字符输出
+        qwer();
+
+        index = (index + 1) % placeholders.length;  // 循环索引
+        }
+        setInterval(changePlaceholder, 5000);  // 每 2 秒切换一次
+    </script>
+    
     <script src="message/link.js"></script>
     <script src="message/main.js"></script>
     <script src="message/AIcode.js"></script>
     <script src="message/sendMessage.js"></script>
-    <script src="message/answerMessage.js"></script>
     <script src="message/waitingMessage.js"></script>
+    <script src="message/answerMessage/answerMessage.js"></script>
+    <script src="message/answerMessage/speed25.js"></script>
+    <script src="message/answerMessage/speed50.js"></script>
+    <script src="message/answerMessage/speed75.js"></script>
+    <script src="message/answerMessage/speed100.js"></script>
 </body>
 
 </html>

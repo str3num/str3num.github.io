@@ -26,7 +26,7 @@ function sendMessage() {
         str = str.replace("?", "!");
         str = str.replace("你", "我");
         message = str.replace("我好", "你好");
-        answerMessage(message) //调用sendMessage函数
+        speed25(message) //调用sendMessage函数
     }
     
     // 清空输入框
