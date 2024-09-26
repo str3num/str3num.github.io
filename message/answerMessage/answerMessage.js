@@ -20,14 +20,14 @@ function answerMessage(speed,message) {
                 // 将下一个字符追加到输出中
                 AnswerMessage.innerHTML += message[index];
                 index++;
-                // 每次添加新内容后滚动页面到对话框
-                AnswerMessage.scrollIntoView({ behavior: 'smooth' });
                 // 每隔 500 毫秒输出下一个字符
             setTimeout(printCharacter, speed);
             }
         }
         // 开始逐个字符输出
         printCharacter();
+        // 每次添加新内容后滚动页面到对话框
+        AnswerMessage.scrollIntoView({ behavior: 'smooth' });
     
         },500)
     }    
