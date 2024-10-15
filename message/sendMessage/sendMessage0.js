@@ -1,4 +1,4 @@
-function sendMessage(message) {
+function sendMessage0(message) {
     const sendMessage = document.createElement('div');
     sendMessage.classList.add('message');
 

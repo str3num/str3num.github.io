@@ -17,15 +17,15 @@ function sendMessage1() {
         switch (index) {
             case "1":
                 message = "今天不开心！";
-                sendMessage50(message);
+                sendMessage(50,message);
                 break; // 结束当前 case
             case "2":
                 message = "不想学习！";
-                sendMessage50(message);
+                sendMessage(50,message);
                 break; // 结束当前 case
             case "3":
                 message = "11111111111111111";
-                sendMessage50(message);
+                sendMessage(50,message);
                 break; // 结束当前 case
             default:
                 linkMessage(); // 如果没有匹配的 case，调用linkMessage函数
@@ -33,7 +33,7 @@ function sendMessage1() {
     }
     else
     { 
-        sendMessage50(message) //调用sendMessage函数
+        sendMessage(50,message) //调用sendMessage函数
         var str = message;
         //估值一个亿的ai代码
         str = str.replace("吗", "");
