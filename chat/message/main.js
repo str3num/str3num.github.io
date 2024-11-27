@@ -17,15 +17,24 @@ function sendMessage1() {
         switch (index) {
             case "1":
                 message = "今天不开心！";
-                sendMessage(50,message);
+                answerMessage(50,message);
+                setTimeout(()=>{
+                    sendMessage(50,message);
+                    },500);
                 break; // 结束当前 case
             case "2":
                 message = "不想学习！";
-                sendMessage(50,message);
+                answerMessage(50,message);
+                setTimeout(()=>{
+                    sendMessage(50,message);
+                    },500);
                 break; // 结束当前 case
             case "3":
                 message = "11111111111111111";
-                sendMessage(50,message);
+                answerMessage(50,message);
+                setTimeout(()=>{
+                    sendMessage(50,message);
+                    },500);
                 break; // 结束当前 case
             default:
                 linkMessage(); // 如果没有匹配的 case，调用linkMessage函数
@@ -42,10 +51,9 @@ function sendMessage1() {
         str = str.replace("?", "!");
         str = str.replace("你", "我");
         message = str.replace("我好", "你好");
-        answerMessage50(message) //调用sendMessage函数
+        answerMessage(50,message) //调用sendMessage函数
     }
     
     // 清空输入框
     messageInput.value = '';
 }
-
