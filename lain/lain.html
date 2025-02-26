@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+<link rel="stylesheet" href="/i/5/all.css">
+<style>
+    html,body{scroll-behavior: smooth;}
+    body{
+    user-select: none;-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;
+    image-rendering: optimizeSpeed;image-rendering: -moz-crisp-edges;image-rendering: -o-crisp-edges;image-rendering: -webkit-optimize-contrast;image-rendering: pixelated;-ms-interpolation-mode: nearest-neighbor;
+    }
+    hr{border-top: 2px dashed var(--huise-color);}
+    table{box-shadow:2px 2px 8px #00000030;}
+    table.tm{border: 1px solid;}
+    #弹窗{font-size:16px;position: absolute;left:0;position:fixed;bottom:0;margin:0 0 15px 20px;line-height:18px;padding:7px;width:300px;border-style:solid;border-radius:5px;border:2px solid #535353;z-index:999;}
+    .js{color:var(--body-color);border-bottom:1px solid #006699;user-select: none;-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;cursor:default;}
+</style>
+<script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+<style>
+    @-webkit-keyframes a{0%{opacity:0;bottom:-15px;max-height:0;max-width:0;margin-top:0}30%{opacity:.8;bottom:-3px}to{opacity:1;bottom:0;max-height:200px;margin-top:12px;max-width:400px}}@keyframes a{0%{opacity:0;bottom:-15px;max-height:0;max-width:0;margin-top:0}30%{opacity:.8;bottom:-3px}to{opacity:1;bottom:0;max-height:200px;margin-top:12px;max-width:400px}}@-webkit-keyframes b{0%{opacity:1;bottom:0}30%{opacity:.2;bottom:-3px}to{opacity:0;bottom:-15px}}@keyframes b{0%{opacity:1;bottom:0}30%{opacity:.2;bottom:-3px}to{opacity:0;bottom:-15px}}@-webkit-keyframes c{0%{opacity:0}30%{opacity:.5}to{opacity:.6}}@keyframes c{0%{opacity:0}30%{opacity:.5}to{opacity:.6}}@-webkit-keyframes d{0%{opacity:.6}30%{opacity:.1}to{opacity:0}}@keyframes d{0%{opacity:.6}30%{opacity:.1}to{opacity:0}}.notyf-container{position:fixed;bottom:20px;right:30px;width:20%;color:#fff;z-index:1}.notyf-container .notyf-alert-icon,.notyf-container .notyf-confirm-icon{height:21px;width:21px;background:#fff;border-radius:50%;display:block;margin:0 auto;position:relative}.notyf-container .notyf-alert-icon:after,.notyf-container .notyf-alert-icon:before{content:"";background:#ed3d3d;display:block;position:absolute;width:3px;border-radius:3px;left:9px}.notyf-container .notyf-alert-icon:after{height:3px;top:14px}.notyf-container .notyf-alert-icon:before{height:8px;top:4px}.notyf-container .notyf-confirm-icon:after,.notyf-container .notyf-confirm-icon:before{content:"";background:#3dc763;display:block;position:absolute;width:3px;border-radius:3px}.notyf-container .notyf-confirm-icon:after{height:6px;-webkit-transform:rotate(-45deg);transform:rotate(-45deg);top:9px;left:6px}.notyf-container .notyf-confirm-icon:before{height:11px;-webkit-transform:rotate(45deg);transform:rotate(45deg);top:5px;left:10px}.notyf-container .notyf{display:block;overflow:hidden;-webkit-animation:a .3s forwards;animation:a .3s forwards;box-shadow:0 1px 3px 0 rgba(0,0,0,.45);position:relative;padding-right:13px}.notyf-container .notyf.alert{background:#ed3d3d}.notyf-container .notyf.confirm{background:#3dc763}.notyf-container .notyf.disappear{-webkit-animation:b .3s 1 forwards;animation:b .3s 1 forwards;-webkit-animation-delay:.25s;animation-delay:.25s}.notyf-container .notyf.disappear .notyf-message{opacity:1;-webkit-animation:b .3s 1 forwards;animation:b .3s 1 forwards;-webkit-animation-delay:.1s;animation-delay:.1s}.notyf-container .notyf.disappear .notyf-icon{opacity:1;-webkit-animation:d .3s 1 forwards;animation:d .3s 1 forwards}.notyf-container .notyf-wrapper{display:table;width:100%;padding-top:20px;padding-bottom:20px;padding-right:15px;border-radius:3px}.notyf-container .notyf-icon{display:table-cell;width:20%;text-align:center;vertical-align:middle;font-size:1.3em;opacity:0;-webkit-animation:c .5s forwards;animation:c .5s forwards;-webkit-animation-delay:.25s;animation-delay:.25s}.notyf-container .notyf-message{display:table-cell;width:80%;vertical-align:middle;position:relative;opacity:0;-webkit-animation:a .3s forwards;animation:a .3s forwards;-webkit-animation-delay:.15s;animation-delay:.15s}@media only screen and (max-width:736px){.notyf-container{width:90%;margin:0 auto;display:block;right:0;left:0}}
+</style>
+
+<!-- onclick="dw(dwb='弹窗内容',dwd='标题')" -->
+<style>
+.dw_zz {position: fixed;left: 0px;top: 0px;background: #00000050;width: 100%;height: 100%;z-index: 2009;color:#404040;}
+.dw_tk {position: relative;background: #fff;top: 20px;width: 60%;height: 65%;border-radius: 20px;margin: 5% auto;padding: 30px 50px;font-size: 1.2em;line-height: 33px;font-weight: bold;}
+#dw_hd {height: 100%;overflow: auto;background-color: #fff;}
+#dw_hd_r {position: absolute;width: 25px;height: 25px;border-radius: 5px;background: red;color: #fff;right: 15px;top: 15px;text-align: center;cursor: pointer;}
+#dw_hd_r:hover {background-color: #ff5858;}
+#dw_x {width: 100%;height: 100%;position: absolute;}
+#dwc{background-color: #fff;font-size:16px;font-weight:normal;}
+/* [onclick^="dw(dwb="]{ */
+.dw_lj{cursor: pointer;border-bottom: 1.8px dotted #08f;}
+
+@media screen and (max-width: 729px){
+    .dw_tk{width:85%;height:75%;padding: 10px 20px;}
+}
+</style>
+
+<div class="dw_zz" id='dw_zz'><div id="dw_x" onclick="dw_x()"></div><div class="dw_tk"><div id="dw_hd"><span id="dwd"></span><span id="dwc">
+
+</span><div id="dw_hd_r" onclick="dw_x()" class="bukexuanzhong">×</div></div></div></div>
+
+<script>
+    document.getElementById('dw_zz').style.display = "none";
+    document.getElementById('dw_x').style.display = "none";
+    let dwb = "";
+    let dwd = "0";
+    function dw() {
+        document.getElementById('dw_x').style.display = "";
+        document.getElementById('dw_zz').style.display = "";
+        if(isNaN(dwb)){} else {
+            let 地址="/zk/"+dwb+".json";
+            let GetJson = $.ajax({
+                url: 地址,//json文件位置
+                type: "GET",
+                dataType: "json",
+                async: false,
+                success: function (data) {
+                }
+            });
+            dwb=GetJson.responseText;
+        }
+        if(dwd!="0"){
+            document.getElementById("dwd").innerHTML = "<h3>"+dwd+"</h3>";
+            dwd="0";
+        }else{
+            document.getElementById("dwd").innerHTML = "";
+        }
+        document.getElementById("dwc").innerHTML = dwb;
+    }
+    function dw_x() {
+        document.getElementById('dw_zz').style.display = "none";
+        document.getElementById('dw_x').style.display = "none";
+    }
+</script>
+
+<div id="弹窗" class="内容0 内容1" style="display:none;"><div id="弹窗标题"></div><div id="弹窗内容"></div><div class="内容背景"></div></div>
+
+<textArea id="复制" style="position:absolute;top:-1000px"></textArea>
+
+<script>
+    !function(){function n(n,t){for(property in t)t.hasOwnProperty(property)&&(n[property]=t[property]);return n}function t(n,t){var i=document.createElement("div");i.className="notyf";var e=document.createElement("div");e.className="notyf-wrapper";var o=document.createElement("div");o.className="notyf-icon";var a=document.createElement("i");a.className=t;var r=document.createElement("div");r.className="notyf-message",r.innerHTML=n,o.appendChild(a),e.appendChild(o),e.appendChild(r),i.appendChild(e);var c=this;return setTimeout(function(){i.className+=" disappear",i.addEventListener(c.animationEnd,function(n){n.target==i&&c.container.removeChild(i)});var n=c.notifications.indexOf(i);c.notifications.splice(n,1)},c.options.delay),i}function i(){var n,t=document.createElement("fake"),i={transition:"animationend",OTransition:"oAnimationEnd",MozTransition:"animationend",WebkitTransition:"webkitAnimationEnd"};for(n in i)if(void 0!==t.style[n])return i[n]}this.Notyf=function(){this.notifications=[];var t={delay:2e3,alertIcon:"notyf-alert-icon",confirmIcon:"notyf-confirm-icon"};arguments[0]&&"object"==typeof arguments[0]?this.options=n(t,arguments[0]):this.options=t;var e=document.createDocumentFragment(),o=document.createElement("div");o.className="notyf-container",e.appendChild(o),document.body.appendChild(e),this.container=o,this.animationEnd=i()},this.Notyf.prototype.alert=function(n){var i=t.call(this,n,this.options.alertIcon);i.className+=" alert",this.container.appendChild(i),this.notifications.push(i)},this.Notyf.prototype.confirm=function(n){var i=t.call(this,n,this.options.confirmIcon);i.className+=" confirm",this.container.appendChild(i),this.notifications.push(i)}}();
+    let notyf = new Notyf({delay:3000});
+
+    let 制;function 复(){制=制.replace(/［换行］/g, "\n");notyf.confirm("已复制");document.getElementById('复制').value = 制;let 复制 = document.querySelector('#复制');复制.select();document.execCommand("Copy");}
+
+    let dmd,dmm;
+    function dm(){
+        document.getElementById("弹窗标题").innerHTML = "<b>"+dmd+"</b>";
+        document.getElementById("弹窗内容").innerHTML = dmm;
+        document.getElementById("弹窗").style="";
+    }
+    function dmx(){
+        document.getElementById("弹窗").style="display:none;";
+    }
+</script>
+
+<title>你是否承认小像素点非常可爱？ - 小像素点</title>
+</head>
+<body>
+<style>
+body{
+    background-color: #f1d5da; /* 浅粉色 */
+    text-align: center;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* 页面内容居中 */
+.container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* 让图片大小适中 */
+#mainImage {
+    width: 100px;
+    transition: all 0.3s ease;
+
+    margin:0 auto;
+    height:100px;background-color:#000000;
+    border: 4px solid #68495b;
+}
+
+/* 文字 */
+h1 {
+    font-size: 28px;
+    color: #68495b;
+}
+
+/* 按钮样式 */
+button {
+    font-size: 18px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 10px;
+    transition: all 0.3s ease;
+}
+
+#yes {
+    background-color: #d4818e; /* 粉色 */
+    color: white;
+}
+
+#no {
+    background-color: #6784b1; /* 蓝色 */
+    color: white;
+    position: relative;
+}
+
+/* Yes 完全填满屏幕 */
+.yes-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #ffdae0; /* 粉色 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+
+.LY14{--heart-color:#ff5b89;position:relative;width:50px;height:50px;transition:.3s}.LY14 .LY14d{position:absolute;width:100%;height:100%;opacity:0;z-index:20;cursor:pointer}.LY14 .LY14e{width:100%;height:100%;display:flex;justify-content:center;align-items:center}.LY14 .LY14c,.LY14 .LY14b{fill:var(--heart-color);position:absolute}.LY14 .LY14b{animation:keyframes-LY14b 1s;display:none}.LY14 .LY14a{position:absolute;animation:keyframes-LY14a .5s;animation-fill-mode:forwards;display:none;stroke:var(--heart-color);fill:var(--heart-color);stroke-width:2px}.LY14 .LY14d,.LY14e .LY14b{display:block}.LY14 .LY14d,.LY14e .LY14a{display:block}@keyframes keyframes-LY14b{0%{transform:scale(0)}25%{transform:scale(1.2)}50%{transform:scale(1);filter:brightness(1.5)}}@keyframes keyframes-LY14a{0%{transform:scale(0)}50%{opacity:1;filter:brightness(1.5)}100%{transform:scale(1.4);opacity:0;display:none}}
+
+.LY14{
+    left:52px;top:47px;
+}
+
+.yes-text{position:relative;top:20px;}
+
+#说明{position:fixed;left:3%;bottom:3%;color:#a9a9a9;
+    text-align:left;}
+</style>
+
+<div id="body">
+    <div class="container">
+        <img id="mainImage" src="images/lain.jpg" alt="Love">
+        <h1 id="question">你是否承认小像素点非常可爱？</h1>
+        <div class="buttons">
+            <button id="yes">承认</button>
+            <button id="no">不承认</button>
+        </div>
+    </div>
+</div>
+<small id="说明" onclick="说明()"><span style="cursor:pointer">说明</span></small>
+
+<script>
+let 像素点="小lain";
+let url=window.location.href;
+if(url.indexOf("?")!=-1){
+    url=url.split("?")[1].toUpperCase();
+
+
+    try{
+    let GetJson=$.ajax({
+        url:"/i/x/"+url+".json",
+        type:"GET",
+        dataType:"json",
+        async:false,
+        success:function(data){
+        }
+    });
+    let 临时=GetJson.responseText.split("／")[0];
+    if(临时.length<30){像素点=临时}
+
+    }catch(e){
+    }
+
+
+}else{url="000000"}
+document.getElementById("mainImage").style = "background-image: url('lain.png'); background-size: cover;";
+document.getElementById("question").innerHTML="你是否承认 "+像素点+" 非常可爱？";
+
+let yesButton = document.getElementById("yes");
+let noButton = document.getElementById("no");
+let questionText = document.getElementById("question");
+let mainImage = document.getElementById("mainImage");
+
+let clickCount = 0;  // 记录点击 No 的次数
+
+// No 按钮的文字变化
+const noTexts = [
+    "你认真的吗…", 
+    "要不再想想？", 
+    "不许选这个！ ", 
+    "我会很伤心…", 
+    "杀了你呦"
+];
+
+// No 按钮点击事件
+noButton.addEventListener("click", function() {
+    clickCount++;
+
+    // 让 Yes 变大，每次放大 2 倍
+    let yesSize = 1 + (clickCount * 1.2);
+    yesButton.style.transform = `scale(${yesSize})`;
+
+    // 挤压 No 按钮，每次右移 100px
+    let noOffset = clickCount * 50;
+    noButton.style.transform = `translateX(${noOffset}px)`;
+
+    // **新增：让图片和文字往上移动**
+    let moveUp = clickCount * 25; // 每次上移 20px
+    mainImage.style.transform = `translateY(-${moveUp}px)`;
+    questionText.style.transform = `translateY(-${moveUp}px)`;
+
+    // No 文案变化（前 5 次变化）
+    if (clickCount <= 5) {
+        noButton.innerText = noTexts[clickCount - 1];
+    }
+
+    // 图片变化（前 5 次变化）
+     if (clickCount === 1) mainImage.src = "images/shocked.jpg"; // 震惊
+     if (clickCount === 2) mainImage.src = "images/think.jpg";   // 思考
+     if (clickCount === 3) mainImage.src = "images/angry.jpg";   // 生气
+     if (clickCount === 4) mainImage.src = "images/crying.jpg";  // 哭
+     if (clickCount >= 5) mainImage.src = "images/kill.jpg";  // 之后一直是
+
+});
+
+// Yes 按钮点击后，进入表白成功页面
+yesButton.addEventListener("click", function() {
+    document.getElementById("body").innerHTML = `
+        <div class="yes-screen">
+            <h1 class="yes-text">!!!喜欢你!! ( >᎑<)♡︎ᐝ</h1>
+            <div class="LY14"><input type="checkbox" class="LY14d"><div class="LY14e"><svg viewBox="0 0 24 24" class="LY14c" xmlns="http://www.w3.org/2000/svg"><path d="M17.5,1.917a6.4,6.4,0,0,0-5.5,3.3,6.4,6.4,0,0,0-5.5-3.3A6.8,6.8,0,0,0,0,8.967c0,4.547,4.786,9.513,8.8,12.88a4.974,4.974,0,0,0,6.4,0C19.214,18.48,24,13.514,24,8.967A6.8,6.8,0,0,0,17.5,1.917Zm-3.585,18.4a2.973,2.973,0,0,1-3.83,0C4.947,16.006,2,11.87,2,8.967a4.8,4.8,0,0,1,4.5-5.05A4.8,4.8,0,0,1,11,8.967a1,1,0,0,0,2,0,4.8,4.8,0,0,1,4.5-5.05A4.8,4.8,0,0,1,22,8.967C22,11.87,19.053,16.006,13.915,20.313Z"></path></svg><svg viewBox="0 0 24 24" class="LY14b" xmlns="http://www.w3.org/2000/svg"><path d="M17.5,1.917a6.4,6.4,0,0,0-5.5,3.3,6.4,6.4,0,0,0-5.5-3.3A6.8,6.8,0,0,0,0,8.967c0,4.547,4.786,9.513,8.8,12.88a4.974,4.974,0,0,0,6.4,0C19.214,18.48,24,13.514,24,8.967A6.8,6.8,0,0,0,17.5,1.917Z"></path></svg><svg class="LY14a" width="100" height="100" xmlns="http://www.w3.org/2000/svg"><polygon points="10,10 20,20"></polygon><polygon points="10,50 20,50"></polygon><polygon points="20,80 30,70"></polygon><polygon points="90,10 80,20"></polygon><polygon points="90,50 80,50"></polygon><polygon points="80,80 70,70"></polygon></svg></div></div>
+            <img id="mainImage" src="images/love.jpg" alt="Love">
+        </div>
+    `;
+
+    document.body.style.overflow = "hidden";
+});
+
+function 说明(){
+        document.getElementById("说明").innerHTML="代码来源：<a href='https://weibo.com/u/7233435008'>@汤汤好梦</a>";
+    }
+</script>
+</body>
+
+
+
+<script>
+    target = document.querySelectorAll('img');
+    if (target[0]) {
+    for (let i = 0; i < target.length; i++) {
+        if (target[i]["onerror"]){}else{
+                target[i].setAttribute('onerror', "this.src='/img/404.jpg';this.onerror=null;");
+            }
+        }
+    }
+</script>
+
+</html>
