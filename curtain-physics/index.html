@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文字门帘 · Physics</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="layout">
+        <section class="panel">
+            <div class="panel__header">
+                <p class="panel__eyebrow">Physics Curtain</p>
+                <h1>真实物理门帘</h1>
+                <p class="panel__intro">左键拖动“手”拨开门帘，右键按住移动施加风场。当前版本使用 Matter.js 做真实约束与碰撞。</p>
+            </div>
+
+            <label class="field">
+                <span>文字内容</span>
+                <textarea id="text-input" rows="12"></textarea>
+            </label>
+
+            <div class="field">
+                <span>导入文本</span>
+                <input id="file-input" type="file" accept=".txt,text/plain">
+            </div>
+
+            <div class="field">
+                <span>排版模式</span>
+                <select id="text-mode">
+                    <option value="poetry">诗词模式</option>
+                    <option value="text">文本模式</option>
+                </select>
+            </div>
+
+            <div class="field field--grid">
+                <label>
+                    <span>每串最大字数</span>
+                    <input id="max-chars-per-strand" type="number" min="2" max="100" value="100">
+                </label>
+                <label>
+                    <span>字号</span>
+                    <input id="font-size" type="range" min="18" max="56" value="30">
+                </label>
+                <label>
+                    <span>字间距</span>
+                    <input id="char-gap" type="range" min="26" max="72" value="42">
+                </label>
+                <label>
+                    <span>串间距</span>
+                    <input id="column-gap" type="range" min="30" max="92" value="54">
+                </label>
+                <label>
+                    <span>段间距</span>
+                    <input id="group-gap" type="range" min="36" max="150" value="84">
+                </label>
+                <label>
+                    <span>风场半径</span>
+                    <input id="wind-radius" type="range" min="70" max="520" value="180">
+                </label>
+                <label>
+                    <span>风场强度</span>
+                    <input id="wind-strength" type="range" min="0.0002" max="0.05" step="0.0002" value="0.0024">
+                </label>
+            </div>
+
+            <div class="field field--grid field--colors">
+                <label>
+                    <span>背景</span>
+                    <input id="background-color" type="color" value="#ffffff">
+                </label>
+                <label>
+                    <span>文字</span>
+                    <input id="text-color" type="color" value="#111111">
+                </label>
+            </div>
+
+            <label class="field field--toggle">
+                <span>随机风</span>
+                <input id="auto-wind-enabled" type="checkbox">
+            </label>
+
+            <div class="field field--grid">
+                <label>
+                    <span>随机风强度</span>
+                    <input id="auto-wind-strength" type="range" min="0.0001" max="0.004" step="0.0001" value="0.0009">
+                </label>
+                <label>
+                    <span>随机风频率</span>
+                    <input id="auto-wind-frequency" type="range" min="0.002" max="0.03" step="0.001" value="0.01">
+                </label>
+            </div>
+
+            <label class="field field--toggle">
+                <span>文字碰撞</span>
+                <input id="collision-enabled" type="checkbox" checked>
+            </label>
+
+            <label class="field field--toggle">
+                <span>文字回正</span>
+                <input id="upright-enabled" type="checkbox">
+            </label>
+
+            <div class="actions">
+                <button id="apply-button" type="button">应用配置</button>
+                <button id="reset-button" type="button">恢复默认</button>
+            </div>
+        </section>
+
+        <section class="stage-wrap">
+            <canvas id="thread-canvas"></canvas>
+            <div id="letter-layer" class="letter-layer"></div>
+            <div class="hud">
+                <span>左键：手部碰撞</span>
+                <span>右键：风场</span>
+            </div>
+        </section>
+    </main>
+
+    <script src="matter.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
