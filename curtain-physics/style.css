@@ -32,6 +32,10 @@ textarea {
     grid-template-columns: 320px 1fr;
 }
 
+.layout.is-panel-collapsed {
+    grid-template-columns: 0 1fr;
+}
+
 .panel {
     padding: 28px 22px;
     background: var(--panel-bg);
@@ -39,12 +43,39 @@ textarea {
     display: flex;
     flex-direction: column;
     gap: 18px;
+    overflow: hidden;
+    transition: padding 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
+}
+
+.layout.is-panel-collapsed .panel {
+    padding-left: 0;
+    padding-right: 0;
+    border-right-color: transparent;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .panel__header h1 {
     margin: 0;
     font-size: 32px;
     font-weight: 600;
+}
+
+.panel__header {
+    position: relative;
+}
+
+.panel__toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 6px 10px;
+    background: transparent;
+    color: var(--text);
+}
+
+.layout.is-panel-collapsed .panel__toggle {
+    pointer-events: auto;
 }
 
 .panel__eyebrow {
@@ -144,6 +175,49 @@ button:last-child {
 
 .stage-wrap.is-right-down {
     cursor: cell;
+}
+
+.stage-wrap.is-cut-mode {
+    cursor: crosshair;
+}
+
+.mode-menu {
+    position: absolute;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    min-width: 160px;
+    border: 1px solid var(--panel-border);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 10px 30px rgba(17, 17, 17, 0.1);
+    overflow: hidden;
+}
+
+.mode-menu button {
+    border: 0;
+    border-bottom: 1px solid var(--panel-border);
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+    padding: 10px 12px;
+}
+
+.mode-menu button:last-child {
+    border-bottom: 0;
+}
+
+.mode-menu button:hover {
+    background: rgba(17, 17, 17, 0.06);
+}
+
+.stage-panel-toggle {
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    z-index: 25;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--text);
+    border-color: var(--panel-border);
 }
 
 #thread-canvas,

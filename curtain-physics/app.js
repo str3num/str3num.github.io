@@ -27,11 +27,13 @@ const CONFIG = {
         charGap: 42,
         columnGap: 54,
         groupGap: 84,
+        groundHeight: 92,
         windRadius: 180,
         windStrength: 0.0024,
         autoWindEnabled: false,
         autoWindStrength: 0.0009,
         autoWindFrequency: 0.01,
+        cutRadius: 34,
         collisionEnabled: true,
         uprightEnabled: false,
         backgroundColor: "#ffffff",
@@ -53,6 +55,8 @@ const CONFIG = {
         restitution: 0.1,
         collisionPadding: 0.34,
         handRadius: 54,
+        dragStiffness: 0.18,
+        dragDamping: 0.12,
         uprightStiffness: 0.08,
         uprightAngularDamping: 0.84
     },
@@ -77,18 +81,25 @@ const fontSizeInput = document.getElementById("font-size");
 const charGapInput = document.getElementById("char-gap");
 const columnGapInput = document.getElementById("column-gap");
 const groupGapInput = document.getElementById("group-gap");
+const groundHeightInput = document.getElementById("ground-height");
 const windRadiusInput = document.getElementById("wind-radius");
 const windStrengthInput = document.getElementById("wind-strength");
 const autoWindEnabledInput = document.getElementById("auto-wind-enabled");
 const autoWindStrengthInput = document.getElementById("auto-wind-strength");
 const autoWindFrequencyInput = document.getElementById("auto-wind-frequency");
+const cutRadiusInput = document.getElementById("cut-radius");
 const collisionEnabledInput = document.getElementById("collision-enabled");
 const uprightEnabledInput = document.getElementById("upright-enabled");
 const backgroundColorInput = document.getElementById("background-color");
 const textColorInput = document.getElementById("text-color");
 const applyButton = document.getElementById("apply-button");
 const resetButton = document.getElementById("reset-button");
+const layout = document.querySelector(".layout");
+const panelToggle = document.getElementById("panel-toggle");
+const stagePanelToggle = document.getElementById("stage-panel-toggle");
 const stage = document.querySelector(".stage-wrap");
+const modeIndicator = document.getElementById("mode-indicator");
+const modeMenu = document.getElementById("mode-menu");
 const threadCanvas = document.getElementById("thread-canvas");
 const letterLayer = document.getElementById("letter-layer");
 const threadCtx = threadCanvas.getContext("2d");
@@ -106,12 +117,15 @@ const state = {
     letters: [],
     anchors: [],
     handBody: null,
+    dragConstraint: null,
+    groundBody: null,
     pointer: {
         x: 0,
         y: 0,
         prevX: 0,
         prevY: 0,
-        mode: null,
+        leftActive: false,
+        toolMode: "hand",
         inside: false
     },
     options: { ...CONFIG.defaults },
@@ -132,11 +146,13 @@ fontSizeInput.value = String(CONFIG.defaults.fontSize);
 charGapInput.value = String(CONFIG.defaults.charGap);
 columnGapInput.value = String(CONFIG.defaults.columnGap);
 groupGapInput.value = String(CONFIG.defaults.groupGap);
+groundHeightInput.value = String(CONFIG.defaults.groundHeight);
 windRadiusInput.value = String(CONFIG.defaults.windRadius);
 windStrengthInput.value = String(CONFIG.defaults.windStrength);
 autoWindEnabledInput.checked = CONFIG.defaults.autoWindEnabled;
 autoWindStrengthInput.value = String(CONFIG.defaults.autoWindStrength);
 autoWindFrequencyInput.value = String(CONFIG.defaults.autoWindFrequency);
+cutRadiusInput.value = String(CONFIG.defaults.cutRadius);
 collisionEnabledInput.checked = CONFIG.defaults.collisionEnabled;
 uprightEnabledInput.checked = CONFIG.defaults.uprightEnabled;
 backgroundColorInput.value = CONFIG.defaults.backgroundColor;
@@ -218,6 +234,44 @@ function clearWorld() {
         Composite.remove(engine.world, state.handBody, true);
         state.handBody = null;
     }
+
+    if (state.dragConstraint) {
+        Composite.remove(engine.world, state.dragConstraint, true);
+        state.dragConstraint = null;
+    }
+
+    if (state.groundBody) {
+        Composite.remove(engine.world, state.groundBody, true);
+        state.groundBody = null;
+    }
+}
+
+function updateModeIndicator() {
+    const labels = {
+        hand: "当前模式：拨动",
+        wind: "当前模式：风场",
+        cut: "当前模式：切断"
+    };
+    modeIndicator.textContent = labels[state.pointer.toolMode];
+    stage.classList.toggle("is-cut-mode", state.pointer.toolMode === "cut");
+}
+
+function openModeMenu(pointX, pointY) {
+    modeMenu.hidden = false;
+    modeMenu.style.left = `${Math.min(pointX, Math.max(20, state.width - 180))}px`;
+    modeMenu.style.top = `${Math.min(pointY, Math.max(20, state.height - 160))}px`;
+}
+
+function closeModeMenu() {
+    modeMenu.hidden = true;
+}
+
+function setPanelCollapsed(collapsed) {
+    layout.classList.toggle("is-panel-collapsed", collapsed);
+    panelToggle.textContent = collapsed ? "展开" : "收起";
+    panelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    stagePanelToggle.textContent = collapsed ? "展开面板" : "收起面板";
+    stagePanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
 }
 
 function drawConnector(startX, startY, endX, endY) {
@@ -244,7 +298,7 @@ function createLetterBody(x, y, fontSize, visible, char) {
         restitution: CONFIG.body.restitution,
         collisionFilter: {
             category: 0x0002,
-            mask: state.options.collisionEnabled ? (0x0002 | 0x0004) : 0x0004
+            mask: state.options.collisionEnabled ? (0x0002 | 0x0004 | 0x0008) : (0x0004 | 0x0008)
         },
         render: { visible: false }
     });
@@ -258,9 +312,31 @@ function createLetterBody(x, y, fontSize, visible, char) {
     };
 }
 
+function createGround() {
+    const groundY = state.height - state.options.groundHeight;
+    state.groundBody = Bodies.rectangle(
+        state.width / 2,
+        groundY + 18,
+        state.width + 200,
+        36,
+        {
+            isStatic: true,
+            friction: 0.8,
+            restitution: 0,
+            collisionFilter: {
+                category: 0x0008,
+                mask: 0x0002
+            },
+            render: { visible: false }
+        }
+    );
+    Composite.add(engine.world, state.groundBody);
+}
+
 function buildCurtain() {
     clearWorld();
     resizeStage();
+    createGround();
 
     const groups = parseText(textInput.value || defaultText);
     const fontSize = clampFontSize(state.options.fontSize);
@@ -273,6 +349,7 @@ function buildCurtain() {
             const composite = Composite.create();
             const nodes = [];
             const constraints = [];
+            const visibleLinks = [];
             const anchor = {
                 x,
                 y: CONFIG.layout.topPadding - CONFIG.layout.anchorLift
@@ -323,8 +400,13 @@ function buildCurtain() {
                 letterLayer.appendChild(letter);
 
                 node.element = letter;
+                node.linkConstraint = constraint;
                 nodes.push(node);
                 constraints.push(constraint);
+                visibleLinks.push({
+                    constraint,
+                    node
+                });
                 Composite.add(composite, [node.body, constraint]);
                 previousBody = node.body;
             });
@@ -334,6 +416,7 @@ function buildCurtain() {
                 composite,
                 nodes,
                 constraints,
+                visibleLinks,
                 anchor,
                 fontSize
             });
@@ -452,6 +535,15 @@ function ensureHandBody() {
     Composite.add(engine.world, state.handBody);
 }
 
+function releaseDragConstraint() {
+    if (!state.dragConstraint) {
+        return;
+    }
+
+    Composite.remove(engine.world, state.dragConstraint, true);
+    state.dragConstraint = null;
+}
+
 function removeHandBody() {
     if (!state.handBody) {
         return;
@@ -461,36 +553,152 @@ function removeHandBody() {
     state.handBody = null;
 }
 
+function clearPointerState() {
+    state.pointer.leftActive = false;
+    stage.classList.remove("is-left-down");
+    stage.classList.remove("is-right-down");
+    releaseDragConstraint();
+    removeHandBody();
+}
+
+function getVisibleLinkSegment(strand, visibleIndex) {
+    const node = strand.visibleLinks[visibleIndex].node;
+    if (visibleIndex === 0) {
+        return {
+            startX: strand.anchor.x,
+            startY: strand.anchor.y,
+            endX: node.body.position.x,
+            endY: node.body.position.y - strand.fontSize * CONFIG.render.connectorInsetRatio
+        };
+    }
+
+    const previousNode = strand.visibleLinks[visibleIndex - 1].node;
+    return {
+        startX: previousNode.body.position.x,
+        startY: previousNode.body.position.y + strand.fontSize * CONFIG.render.connectorInsetRatio,
+        endX: node.body.position.x,
+        endY: node.body.position.y - strand.fontSize * CONFIG.render.connectorInsetRatio
+    };
+}
+
+function distanceToSegment(pointX, pointY, startX, startY, endX, endY) {
+    const dx = endX - startX;
+    const dy = endY - startY;
+
+    if (dx === 0 && dy === 0) {
+        return Math.hypot(pointX - startX, pointY - startY);
+    }
+
+    const t = Math.max(0, Math.min(1, ((pointX - startX) * dx + (pointY - startY) * dy) / (dx * dx + dy * dy)));
+    const projectionX = startX + t * dx;
+    const projectionY = startY + t * dy;
+    return Math.hypot(pointX - projectionX, pointY - projectionY);
+}
+
+function cutLinks(pointerX, pointerY) {
+    const cutThreshold = state.options.cutRadius;
+
+    state.strands.forEach((strand) => {
+        strand.visibleLinks.forEach((link, index) => {
+            if (!link.constraint) {
+                return;
+            }
+
+            const segment = getVisibleLinkSegment(strand, index);
+            const distance = distanceToSegment(
+                pointerX,
+                pointerY,
+                segment.startX,
+                segment.startY,
+                segment.endX,
+                segment.endY
+            );
+
+            if (distance > cutThreshold) {
+                return;
+            }
+
+            Composite.remove(strand.composite, link.constraint, true);
+            link.constraint = null;
+            link.node.linkConstraint = null;
+        });
+    });
+}
+
+function maybeStartDrag(pointerX, pointerY) {
+    if (state.pointer.toolMode !== "hand") {
+        return;
+    }
+
+    let targetNode = null;
+    let closestDistance = CONFIG.body.handRadius * 1.4;
+
+    state.strands.forEach((strand) => {
+        strand.nodes.forEach((node) => {
+            if (!node.visible) {
+                return;
+            }
+
+            const distance = Math.hypot(
+                node.body.position.x - pointerX,
+                node.body.position.y - pointerY
+            );
+
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                targetNode = node;
+            }
+        });
+    });
+
+    if (!targetNode) {
+        return;
+    }
+
+    state.dragConstraint = Constraint.create({
+        pointA: { x: pointerX, y: pointerY },
+        bodyB: targetNode.body,
+        length: 0,
+        stiffness: CONFIG.body.dragStiffness,
+        damping: CONFIG.body.dragDamping,
+        render: { visible: false }
+    });
+    Composite.add(engine.world, state.dragConstraint);
+}
+
+function updateDragAnchor(pointerX, pointerY) {
+    if (!state.dragConstraint) {
+        return;
+    }
+
+    state.dragConstraint.pointA.x = pointerX;
+    state.dragConstraint.pointA.y = pointerY;
+}
+
 function render() {
     threadCtx.clearRect(0, 0, state.width, state.height);
 
-    state.strands.forEach((strand) => {
-        const visibleNodes = strand.nodes.filter((node) => node.visible);
-        const firstVisible = visibleNodes[0];
+    if (state.groundBody) {
+        const groundY = state.groundBody.position.y - 18;
+        drawConnector(0, groundY, state.width, groundY);
+    }
 
-        if (!firstVisible) {
+    state.strands.forEach((strand) => {
+        if (strand.visibleLinks.length === 0) {
             return;
         }
 
-        drawConnector(
-            strand.anchor.x,
-            strand.anchor.y,
-            firstVisible.body.position.x,
-            firstVisible.body.position.y - strand.fontSize * CONFIG.render.connectorInsetRatio
-        );
+        strand.visibleLinks.forEach((link, index) => {
+            if (!link.constraint) {
+                return;
+            }
 
-        for (let index = 0; index < visibleNodes.length - 1; index += 1) {
-            const current = visibleNodes[index];
-            const next = visibleNodes[index + 1];
-            drawConnector(
-                current.body.position.x,
-                current.body.position.y + strand.fontSize * CONFIG.render.connectorInsetRatio,
-                next.body.position.x,
-                next.body.position.y - strand.fontSize * CONFIG.render.connectorInsetRatio
-            );
-        }
+            const segment = getVisibleLinkSegment(strand, index);
+            drawConnector(segment.startX, segment.startY, segment.endX, segment.endY);
+        });
 
-        visibleNodes.forEach((node) => {
+        strand.visibleLinks.forEach((link) => {
+            const node = link.node;
             node.element.style.transform = `translate(${node.body.position.x}px, ${node.body.position.y}px) translate(-50%, -50%) rotate(${node.body.angle}rad)`;
         });
     });
@@ -527,17 +735,6 @@ function getStagePoint(event) {
     return { x, y, inside };
 }
 
-function setPointerMode(mode) {
-    state.pointer.mode = mode;
-    stage.classList.toggle("is-left-down", mode === "left");
-    stage.classList.toggle("is-right-down", mode === "right");
-}
-
-function clearPointerMode() {
-    setPointerMode(null);
-    removeHandBody();
-}
-
 function applyControls() {
     state.options.textMode = textModeInput.value === "text" ? "text" : "poetry";
     state.options.maxCharsPerStrand = clampMaxChars(Number(maxCharsPerStrandInput.value));
@@ -545,19 +742,23 @@ function applyControls() {
     state.options.charGap = Number(charGapInput.value);
     state.options.columnGap = Number(columnGapInput.value);
     state.options.groupGap = Number(groupGapInput.value);
+    state.options.groundHeight = Number(groundHeightInput.value);
     state.options.windRadius = Number(windRadiusInput.value);
     state.options.windStrength = Number(windStrengthInput.value);
     state.options.autoWindEnabled = autoWindEnabledInput.checked;
     state.options.autoWindStrength = Number(autoWindStrengthInput.value);
     state.options.autoWindFrequency = Number(autoWindFrequencyInput.value);
+    state.options.cutRadius = Number(cutRadiusInput.value);
     state.options.collisionEnabled = collisionEnabledInput.checked;
     state.options.uprightEnabled = uprightEnabledInput.checked;
     state.options.backgroundColor = backgroundColorInput.value;
     state.options.textColor = textColorInput.value;
     maxCharsPerStrandInput.value = String(state.options.maxCharsPerStrand);
     fontSizeInput.value = String(state.options.fontSize);
+    groundHeightInput.value = String(state.options.groundHeight);
     autoWindStrengthInput.value = String(state.options.autoWindStrength);
     autoWindFrequencyInput.value = String(state.options.autoWindFrequency);
+    cutRadiusInput.value = String(state.options.cutRadius);
     updateLetterStyles();
     buildCurtain();
 }
@@ -570,11 +771,13 @@ function resetControls() {
     charGapInput.value = String(CONFIG.defaults.charGap);
     columnGapInput.value = String(CONFIG.defaults.columnGap);
     groupGapInput.value = String(CONFIG.defaults.groupGap);
+    groundHeightInput.value = String(CONFIG.defaults.groundHeight);
     windRadiusInput.value = String(CONFIG.defaults.windRadius);
     windStrengthInput.value = String(CONFIG.defaults.windStrength);
     autoWindEnabledInput.checked = CONFIG.defaults.autoWindEnabled;
     autoWindStrengthInput.value = String(CONFIG.defaults.autoWindStrength);
     autoWindFrequencyInput.value = String(CONFIG.defaults.autoWindFrequency);
+    cutRadiusInput.value = String(CONFIG.defaults.cutRadius);
     collisionEnabledInput.checked = CONFIG.defaults.collisionEnabled;
     uprightEnabledInput.checked = CONFIG.defaults.uprightEnabled;
     backgroundColorInput.value = CONFIG.defaults.backgroundColor;
@@ -584,9 +787,17 @@ function resetControls() {
 
 stage.addEventListener("contextmenu", (event) => {
     event.preventDefault();
+    const point = getStagePoint(event);
+    state.pointer.x = point.x;
+    state.pointer.y = point.y;
+    openModeMenu(point.x, point.y);
 });
 
 stage.addEventListener("pointerdown", (event) => {
+    if (!modeMenu.hidden && modeMenu.contains(event.target)) {
+        return;
+    }
+
     const point = getStagePoint(event);
 
     if (!point.inside) {
@@ -598,15 +809,19 @@ stage.addEventListener("pointerdown", (event) => {
     state.pointer.prevX = point.x;
     state.pointer.prevY = point.y;
     state.pointer.inside = true;
+    closeModeMenu();
 
     if (event.button === 0) {
-        ensureHandBody();
-        Body.setPosition(state.handBody, point);
-        setPointerMode("left");
-    }
+        state.pointer.leftActive = true;
+        stage.classList.add("is-left-down");
 
-    if (event.button === 2) {
-        setPointerMode("right");
+        if (state.pointer.toolMode === "hand") {
+            maybeStartDrag(point.x, point.y);
+        }
+
+        if (state.pointer.toolMode === "cut") {
+            cutLinks(point.x, point.y);
+        }
     }
 });
 
@@ -620,19 +835,22 @@ stage.addEventListener("pointermove", (event) => {
     state.pointer.inside = point.inside;
 
     if (!point.inside) {
-        clearPointerMode();
+        clearPointerState();
         state.pointer.prevX = point.x;
         state.pointer.prevY = point.y;
         return;
     }
 
-    if (state.pointer.mode === "left") {
-        ensureHandBody();
-        Body.setPosition(state.handBody, point);
+    if (state.pointer.leftActive && state.pointer.toolMode === "hand") {
+        updateDragAnchor(point.x, point.y);
     }
 
-    if (state.pointer.mode === "right") {
+    if (state.pointer.leftActive && state.pointer.toolMode === "wind") {
         applyWind(point.x, point.y, deltaX, deltaY);
+    }
+
+    if (state.pointer.leftActive && state.pointer.toolMode === "cut") {
+        cutLinks(point.x, point.y);
     }
 
     state.pointer.prevX = point.x;
@@ -641,11 +859,46 @@ stage.addEventListener("pointermove", (event) => {
 
 stage.addEventListener("pointerleave", () => {
     state.pointer.inside = false;
-    clearPointerMode();
+    clearPointerState();
+    closeModeMenu();
 });
 
 window.addEventListener("pointerup", () => {
-    clearPointerMode();
+    clearPointerState();
+});
+
+window.addEventListener("pointerdown", (event) => {
+    if (!modeMenu.hidden && !modeMenu.contains(event.target) && !stage.contains(event.target)) {
+        closeModeMenu();
+    }
+});
+
+modeMenu.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+});
+
+modeMenu.addEventListener("pointerup", (event) => {
+    event.stopPropagation();
+    const target = event.target.closest("button[data-mode]");
+    if (!target) {
+        return;
+    }
+
+    state.pointer.toolMode = target.dataset.mode;
+    updateModeIndicator();
+    closeModeMenu();
+});
+
+panelToggle.addEventListener("click", () => {
+    const collapsed = !layout.classList.contains("is-panel-collapsed");
+    setPanelCollapsed(collapsed);
+    requestAnimationFrame(buildCurtain);
+});
+
+stagePanelToggle.addEventListener("click", () => {
+    const collapsed = !layout.classList.contains("is-panel-collapsed");
+    setPanelCollapsed(collapsed);
+    requestAnimationFrame(buildCurtain);
 });
 
 fileInput.addEventListener("change", async (event) => {
@@ -673,4 +926,6 @@ Runner.run(runner, engine);
     requestAnimationFrame(loop);
 }());
 
+updateModeIndicator();
+setPanelCollapsed(false);
 applyControls();

@@ -10,6 +10,7 @@
     <main class="layout">
         <section class="panel">
             <div class="panel__header">
+                <button id="panel-toggle" class="panel__toggle" type="button" aria-expanded="true">收起</button>
                 <p class="panel__eyebrow">Physics Curtain</p>
                 <h1>真实物理门帘</h1>
                 <p class="panel__intro">左键拖动“手”拨开门帘，右键按住移动施加风场。当前版本使用 Matter.js 做真实约束与碰撞。</p>
@@ -40,19 +41,23 @@
                 </label>
                 <label>
                     <span>字号</span>
-                    <input id="font-size" type="range" min="18" max="56" value="30">
+                    <input id="font-size" type="range" min="10" max="56" value="30">
                 </label>
                 <label>
                     <span>字间距</span>
-                    <input id="char-gap" type="range" min="26" max="72" value="42">
+                    <input id="char-gap" type="range" min="10" max="72" value="42">
                 </label>
                 <label>
                     <span>串间距</span>
-                    <input id="column-gap" type="range" min="30" max="92" value="54">
+                    <input id="column-gap" type="range" min="10" max="92" value="54">
                 </label>
                 <label>
                     <span>段间距</span>
-                    <input id="group-gap" type="range" min="36" max="150" value="84">
+                    <input id="group-gap" type="range" min="10" max="150" value="84">
+                </label>
+                <label>
+                    <span>地面高度</span>
+                    <input id="ground-height" type="range" min="20" max="280" value="92">
                 </label>
                 <label>
                     <span>风场半径</span>
@@ -89,6 +94,10 @@
                     <span>随机风频率</span>
                     <input id="auto-wind-frequency" type="range" min="0.002" max="0.03" step="0.001" value="0.01">
                 </label>
+                <label>
+                    <span>切断半径</span>
+                    <input id="cut-radius" type="range" min="8" max="120" step="1" value="34">
+                </label>
             </div>
 
             <label class="field field--toggle">
@@ -110,9 +119,15 @@
         <section class="stage-wrap">
             <canvas id="thread-canvas"></canvas>
             <div id="letter-layer" class="letter-layer"></div>
+            <button id="stage-panel-toggle" class="stage-panel-toggle" type="button" aria-expanded="true">收起面板</button>
+            <div id="mode-menu" class="mode-menu" hidden>
+                <button type="button" data-mode="hand">拖拽</button>
+                <button type="button" data-mode="wind">拨动</button>
+                <button type="button" data-mode="cut">切断</button>
+            </div>
             <div class="hud">
-                <span>左键：手部碰撞</span>
-                <span>右键：风场</span>
+                <span id="mode-indicator">当前模式：拖拽</span>
+                <span>右键：模式菜单</span>
             </div>
         </section>
     </main>
