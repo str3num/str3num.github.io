@@ -193,6 +193,10 @@ button:last-child {
     overflow: hidden;
 }
 
+.mode-menu[hidden] {
+    display: none !important;
+}
+
 .mode-menu button {
     border: 0;
     border-bottom: 1px solid var(--panel-border);

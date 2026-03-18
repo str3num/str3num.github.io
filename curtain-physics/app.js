@@ -100,6 +100,7 @@ const stagePanelToggle = document.getElementById("stage-panel-toggle");
 const stage = document.querySelector(".stage-wrap");
 const modeIndicator = document.getElementById("mode-indicator");
 const modeMenu = document.getElementById("mode-menu");
+const dragMenu = document.getElementById("drag-menu");
 const threadCanvas = document.getElementById("thread-canvas");
 const letterLayer = document.getElementById("letter-layer");
 const threadCtx = threadCanvas.getContext("2d");
@@ -114,11 +115,16 @@ const state = {
     width: 0,
     height: 0,
     strands: [],
+    extraLinks: [],
     letters: [],
     anchors: [],
     handBody: null,
     dragConstraint: null,
+    pinConstraint: null,
     groundBody: null,
+    pendingLinkSourceBody: null,
+    dragMenuTargetBody: null,
+    dragMenuAnchor: { x: 0, y: 0 },
     pointer: {
         x: 0,
         y: 0,
@@ -222,6 +228,12 @@ function resizeStage() {
 }
 
 function clearWorld() {
+    state.extraLinks.forEach((link) => {
+        Composite.remove(engine.world, link.constraint, true);
+    });
+    state.extraLinks = [];
+    state.pendingLinkSourceBody = null;
+
     state.strands.forEach((strand) => {
         Composite.remove(engine.world, strand.composite, true);
     });
@@ -240,6 +252,11 @@ function clearWorld() {
         state.dragConstraint = null;
     }
 
+    if (state.pinConstraint) {
+        Composite.remove(engine.world, state.pinConstraint, true);
+        state.pinConstraint = null;
+    }
+
     if (state.groundBody) {
         Composite.remove(engine.world, state.groundBody, true);
         state.groundBody = null;
@@ -248,22 +265,96 @@ function clearWorld() {
 
 function updateModeIndicator() {
     const labels = {
-        hand: "当前模式：拨动",
+        hand: "当前模式：拖拽",
         wind: "当前模式：风场",
         cut: "当前模式：切断"
     };
-    modeIndicator.textContent = labels[state.pointer.toolMode];
+    modeIndicator.textContent = state.pendingLinkSourceBody
+        ? "连线模式：请选择第二个字"
+        : labels[state.pointer.toolMode];
     stage.classList.toggle("is-cut-mode", state.pointer.toolMode === "cut");
 }
 
-function openModeMenu(pointX, pointY) {
-    modeMenu.hidden = false;
-    modeMenu.style.left = `${Math.min(pointX, Math.max(20, state.width - 180))}px`;
-    modeMenu.style.top = `${Math.min(pointY, Math.max(20, state.height - 160))}px`;
+function openMenu(menuElement, pointX, pointY) {
+    closeMenus();
+    menuElement.hidden = false;
+    menuElement.style.left = `${Math.min(pointX, Math.max(20, state.width - 180))}px`;
+    menuElement.style.top = `${Math.min(pointY, Math.max(20, state.height - 160))}px`;
 }
 
 function closeModeMenu() {
     modeMenu.hidden = true;
+}
+
+function closeDragMenu() {
+    dragMenu.hidden = true;
+    state.dragMenuTargetBody = null;
+}
+
+function closeMenus() {
+    closeModeMenu();
+    closeDragMenu();
+}
+
+function getDragPinButton() {
+    return dragMenu.querySelector("button[data-drag-action='pin'], button[data-drag-action='unpin']");
+}
+
+function isBodyPinned(body) {
+    return Boolean(body && state.pinConstraint && state.pinConstraint.bodyB === body);
+}
+
+function refreshDragMenu(targetBody) {
+    const pinButton = getDragPinButton();
+    if (!pinButton) {
+        return;
+    }
+
+    if (isBodyPinned(targetBody)) {
+        pinButton.dataset.dragAction = "unpin";
+        pinButton.textContent = "解除钉住";
+        return;
+    }
+
+    pinButton.dataset.dragAction = "pin";
+    pinButton.textContent = "钉住";
+}
+
+function handleMenuAction(action, fromDragMenu) {
+    if (fromDragMenu) {
+        const targetBody = (state.dragConstraint && state.dragConstraint.bodyB) || state.dragMenuTargetBody;
+        const anchor = state.dragConstraint
+            ? { x: state.dragConstraint.pointA.x, y: state.dragConstraint.pointA.y }
+            : state.dragMenuAnchor;
+
+        if (action === "pin") {
+            pinCurrentDrag(targetBody, anchor);
+        }
+        if (action === "unpin") {
+            unpinCurrentDrag(targetBody);
+        }
+        if (action === "connect" && targetBody) {
+            state.pendingLinkSourceBody = targetBody;
+            pinCurrentDrag(targetBody, anchor);
+            updateModeIndicator();
+        }
+        closeMenus();
+        return;
+    }
+
+    state.pointer.toolMode = action;
+    updateModeIndicator();
+    closeMenus();
+}
+
+function getOpenMenuElement() {
+    if (!dragMenu.hidden) {
+        return dragMenu;
+    }
+    if (!modeMenu.hidden) {
+        return modeMenu;
+    }
+    return null;
 }
 
 function setPanelCollapsed(collapsed) {
@@ -623,6 +714,24 @@ function cutLinks(pointerX, pointerY) {
             link.node.linkConstraint = null;
         });
     });
+
+    state.extraLinks = state.extraLinks.filter((link) => {
+        const distance = distanceToSegment(
+            pointerX,
+            pointerY,
+            link.bodyA.position.x,
+            link.bodyA.position.y,
+            link.bodyB.position.x,
+            link.bodyB.position.y
+        );
+
+        if (distance > cutThreshold) {
+            return true;
+        }
+
+        Composite.remove(engine.world, link.constraint, true);
+        return false;
+    });
 }
 
 function maybeStartDrag(pointerX, pointerY) {
@@ -630,26 +739,7 @@ function maybeStartDrag(pointerX, pointerY) {
         return;
     }
 
-    let targetNode = null;
-    let closestDistance = CONFIG.body.handRadius * 1.4;
-
-    state.strands.forEach((strand) => {
-        strand.nodes.forEach((node) => {
-            if (!node.visible) {
-                return;
-            }
-
-            const distance = Math.hypot(
-                node.body.position.x - pointerX,
-                node.body.position.y - pointerY
-            );
-
-            if (distance < closestDistance) {
-                closestDistance = distance;
-                targetNode = node;
-            }
-        });
-    });
+    const targetNode = findClosestVisibleNode(pointerX, pointerY, CONFIG.body.handRadius * 1.4);
 
     if (!targetNode) {
         return;
@@ -673,6 +763,94 @@ function updateDragAnchor(pointerX, pointerY) {
 
     state.dragConstraint.pointA.x = pointerX;
     state.dragConstraint.pointA.y = pointerY;
+}
+
+function findClosestVisibleNode(pointerX, pointerY, maxDistance, excludeBody = null) {
+    let targetNode = null;
+    let closestDistance = maxDistance;
+
+    state.strands.forEach((strand) => {
+        strand.nodes.forEach((node) => {
+            if (!node.visible) {
+                return;
+            }
+            if (excludeBody && node.body === excludeBody) {
+                return;
+            }
+
+            const distance = Math.hypot(
+                node.body.position.x - pointerX,
+                node.body.position.y - pointerY
+            );
+
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                targetNode = node;
+            }
+        });
+    });
+
+    return targetNode;
+}
+
+function pinCurrentDrag(sourceBody, sourceAnchor) {
+    const body = sourceBody || (state.dragConstraint && state.dragConstraint.bodyB);
+    if (!body) {
+        return;
+    }
+
+    const anchor = sourceAnchor || (
+        state.dragConstraint
+            ? { x: state.dragConstraint.pointA.x, y: state.dragConstraint.pointA.y }
+            : { x: state.pointer.x, y: state.pointer.y }
+    );
+
+    releaseDragConstraint();
+    if (state.pinConstraint) {
+        Composite.remove(engine.world, state.pinConstraint, true);
+    }
+    state.pinConstraint = Constraint.create({
+        pointA: { x: anchor.x, y: anchor.y },
+        bodyB: body,
+        length: 0,
+        stiffness: CONFIG.body.dragStiffness,
+        damping: CONFIG.body.dragDamping,
+        render: { visible: false }
+    });
+    Composite.add(engine.world, state.pinConstraint);
+    state.pointer.leftActive = false;
+    stage.classList.remove("is-left-down");
+    removeHandBody();
+}
+
+function unpinCurrentDrag(targetBody) {
+    if (!state.pinConstraint) {
+        return;
+    }
+
+    if (targetBody && state.pinConstraint.bodyB !== targetBody) {
+        return;
+    }
+
+    Composite.remove(engine.world, state.pinConstraint, true);
+    state.pinConstraint = null;
+}
+
+function createExtraLink(bodyA, bodyB) {
+    const distance = Math.hypot(
+        bodyA.position.x - bodyB.position.x,
+        bodyA.position.y - bodyB.position.y
+    );
+    const constraint = Constraint.create({
+        bodyA,
+        bodyB,
+        length: distance,
+        stiffness: 0.38,
+        damping: 0.08,
+        render: { visible: false }
+    });
+    Composite.add(engine.world, constraint);
+    state.extraLinks.push({ constraint, bodyA, bodyB });
 }
 
 function render() {
@@ -701,6 +879,15 @@ function render() {
             const node = link.node;
             node.element.style.transform = `translate(${node.body.position.x}px, ${node.body.position.y}px) translate(-50%, -50%) rotate(${node.body.angle}rad)`;
         });
+    });
+
+    state.extraLinks.forEach((link) => {
+        drawConnector(
+            link.bodyA.position.x,
+            link.bodyA.position.y,
+            link.bodyB.position.x,
+            link.bodyB.position.y
+        );
     });
 }
 
@@ -790,12 +977,27 @@ stage.addEventListener("contextmenu", (event) => {
     const point = getStagePoint(event);
     state.pointer.x = point.x;
     state.pointer.y = point.y;
-    openModeMenu(point.x, point.y);
+    if (state.pointer.leftActive && state.pointer.toolMode === "hand" && state.dragConstraint) {
+        state.dragMenuTargetBody = state.dragConstraint.bodyB;
+        state.dragMenuAnchor.x = state.dragConstraint.pointA.x;
+        state.dragMenuAnchor.y = state.dragConstraint.pointA.y;
+        refreshDragMenu(state.dragMenuTargetBody);
+        openMenu(dragMenu, point.x, point.y);
+        return;
+    }
+    state.dragMenuTargetBody = null;
+    openMenu(modeMenu, point.x, point.y);
 });
 
 stage.addEventListener("pointerdown", (event) => {
-    if (!modeMenu.hidden && modeMenu.contains(event.target)) {
-        return;
+    const openedMenu = getOpenMenuElement();
+    if (openedMenu) {
+        const targetElement = event.target instanceof Element ? event.target : null;
+        if (targetElement && openedMenu.contains(targetElement)) {
+            return;
+        }
+
+        closeMenus();
     }
 
     const point = getStagePoint(event);
@@ -809,9 +1011,24 @@ stage.addEventListener("pointerdown", (event) => {
     state.pointer.prevX = point.x;
     state.pointer.prevY = point.y;
     state.pointer.inside = true;
-    closeModeMenu();
+    closeMenus();
 
     if (event.button === 0) {
+        if (state.pendingLinkSourceBody) {
+            const targetNode = findClosestVisibleNode(
+                point.x,
+                point.y,
+                CONFIG.body.handRadius * 1.6,
+                state.pendingLinkSourceBody
+            );
+            if (targetNode) {
+                createExtraLink(state.pendingLinkSourceBody, targetNode.body);
+                state.pendingLinkSourceBody = null;
+                updateModeIndicator();
+                return;
+            }
+        }
+
         state.pointer.leftActive = true;
         stage.classList.add("is-left-down");
 
@@ -860,7 +1077,7 @@ stage.addEventListener("pointermove", (event) => {
 stage.addEventListener("pointerleave", () => {
     state.pointer.inside = false;
     clearPointerState();
-    closeModeMenu();
+    closeMenus();
 });
 
 window.addEventListener("pointerup", () => {
@@ -868,26 +1085,67 @@ window.addEventListener("pointerup", () => {
 });
 
 window.addEventListener("pointerdown", (event) => {
-    if (!modeMenu.hidden && !modeMenu.contains(event.target) && !stage.contains(event.target)) {
-        closeModeMenu();
+    const openedMenu = getOpenMenuElement();
+    if (!openedMenu) {
+        return;
     }
-});
+
+    const targetElement = event.target instanceof Element ? event.target : null;
+    if (targetElement && stage.contains(targetElement)) {
+        return;
+    }
+
+    closeMenus();
+}, true);
 
 modeMenu.addEventListener("pointerdown", (event) => {
-    event.stopPropagation();
-});
-
-modeMenu.addEventListener("pointerup", (event) => {
-    event.stopPropagation();
+    if (event.button !== 0) {
+        return;
+    }
     const target = event.target.closest("button[data-mode]");
     if (!target) {
         return;
     }
-
-    state.pointer.toolMode = target.dataset.mode;
-    updateModeIndicator();
-    closeModeMenu();
+    handleMenuAction(target.dataset.mode, false);
+    event.preventDefault();
+    event.stopPropagation();
 });
+
+modeMenu.addEventListener("contextmenu", (event) => {
+    const target = event.target.closest("button[data-mode]");
+    if (!target) {
+        return;
+    }
+    handleMenuAction(target.dataset.mode, false);
+    event.preventDefault();
+    event.stopPropagation();
+});
+
+dragMenu.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) {
+        return;
+    }
+    const target = event.target.closest("button[data-drag-action]");
+    if (!target) {
+        return;
+    }
+    handleMenuAction(target.dataset.dragAction, true);
+    event.preventDefault();
+    event.stopPropagation();
+});
+
+dragMenu.addEventListener("contextmenu", (event) => {
+    const target = event.target.closest("button[data-drag-action]");
+    if (!target) {
+        return;
+    }
+    handleMenuAction(target.dataset.dragAction, true);
+    event.preventDefault();
+    event.stopPropagation();
+});
+
+window.closeModeMenu = closeModeMenu;
+window.closeDragMenu = closeDragMenu;
 
 panelToggle.addEventListener("click", () => {
     const collapsed = !layout.classList.contains("is-panel-collapsed");
