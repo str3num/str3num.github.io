@@ -69,7 +69,10 @@ const CONFIG = {
         connectorShadowColor: "rgba(17, 17, 17, 0.08)",
         connectorColor: "rgba(255, 255, 255, 0.96)",
         connectorShadowWidth: 4,
-        connectorWidth: 1.6
+        connectorWidth: 1.6,
+        pinMarkerColor: "rgba(17, 17, 17, 0.7)",
+        pinMarkerLineWidth: 1.5,
+        pinMarkerPadding: 5
     }
 };
 
@@ -120,7 +123,7 @@ const state = {
     anchors: [],
     handBody: null,
     dragConstraint: null,
-    pinConstraint: null,
+    pinConstraints: [],
     groundBody: null,
     pendingLinkSourceBody: null,
     dragMenuTargetBody: null,
@@ -252,10 +255,10 @@ function clearWorld() {
         state.dragConstraint = null;
     }
 
-    if (state.pinConstraint) {
-        Composite.remove(engine.world, state.pinConstraint, true);
-        state.pinConstraint = null;
-    }
+    state.pinConstraints.forEach((constraint) => {
+        Composite.remove(engine.world, constraint, true);
+    });
+    state.pinConstraints = [];
 
     if (state.groundBody) {
         Composite.remove(engine.world, state.groundBody, true);
@@ -301,7 +304,14 @@ function getDragPinButton() {
 }
 
 function isBodyPinned(body) {
-    return Boolean(body && state.pinConstraint && state.pinConstraint.bodyB === body);
+    return Boolean(body && state.pinConstraints.some((constraint) => constraint.bodyB === body));
+}
+
+function getPinConstraintByBody(body) {
+    if (!body) {
+        return null;
+    }
+    return state.pinConstraints.find((constraint) => constraint.bodyB === body) || null;
 }
 
 function refreshDragMenu(targetBody) {
@@ -378,6 +388,14 @@ function drawConnector(startX, startY, endX, endY) {
     threadCtx.lineWidth = CONFIG.render.connectorWidth;
     threadCtx.moveTo(startX, startY);
     threadCtx.lineTo(endX, endY);
+    threadCtx.stroke();
+}
+
+function drawPinMarker(body, radius) {
+    threadCtx.beginPath();
+    threadCtx.strokeStyle = CONFIG.render.pinMarkerColor;
+    threadCtx.lineWidth = CONFIG.render.pinMarkerLineWidth;
+    threadCtx.arc(body.position.x, body.position.y, radius, 0, Math.PI * 2);
     threadCtx.stroke();
 }
 
@@ -806,10 +824,12 @@ function pinCurrentDrag(sourceBody, sourceAnchor) {
     );
 
     releaseDragConstraint();
-    if (state.pinConstraint) {
-        Composite.remove(engine.world, state.pinConstraint, true);
+    const existing = getPinConstraintByBody(body);
+    if (existing) {
+        Composite.remove(engine.world, existing, true);
+        state.pinConstraints = state.pinConstraints.filter((constraint) => constraint !== existing);
     }
-    state.pinConstraint = Constraint.create({
+    const pinConstraint = Constraint.create({
         pointA: { x: anchor.x, y: anchor.y },
         bodyB: body,
         length: 0,
@@ -817,23 +837,33 @@ function pinCurrentDrag(sourceBody, sourceAnchor) {
         damping: CONFIG.body.dragDamping,
         render: { visible: false }
     });
-    Composite.add(engine.world, state.pinConstraint);
+    Composite.add(engine.world, pinConstraint);
+    state.pinConstraints.push(pinConstraint);
     state.pointer.leftActive = false;
     stage.classList.remove("is-left-down");
     removeHandBody();
 }
 
 function unpinCurrentDrag(targetBody) {
-    if (!state.pinConstraint) {
+    if (state.pinConstraints.length === 0) {
         return;
     }
 
-    if (targetBody && state.pinConstraint.bodyB !== targetBody) {
+    if (!targetBody) {
+        state.pinConstraints.forEach((constraint) => {
+            Composite.remove(engine.world, constraint, true);
+        });
+        state.pinConstraints = [];
         return;
     }
 
-    Composite.remove(engine.world, state.pinConstraint, true);
-    state.pinConstraint = null;
+    const targetConstraint = getPinConstraintByBody(targetBody);
+    if (!targetConstraint) {
+        return;
+    }
+
+    Composite.remove(engine.world, targetConstraint, true);
+    state.pinConstraints = state.pinConstraints.filter((constraint) => constraint !== targetConstraint);
 }
 
 function createExtraLink(bodyA, bodyB) {
@@ -888,6 +918,17 @@ function render() {
             link.bodyB.position.x,
             link.bodyB.position.y
         );
+    });
+
+    state.pinConstraints.forEach((constraint) => {
+        if (!constraint.bodyB) {
+            return;
+        }
+        const pinBody = constraint.bodyB;
+        const pinRadius = pinBody.circleRadius
+            ? pinBody.circleRadius + CONFIG.render.pinMarkerPadding
+            : state.options.fontSize * 0.5 + CONFIG.render.pinMarkerPadding;
+        drawPinMarker(pinBody, pinRadius);
     });
 }
 
