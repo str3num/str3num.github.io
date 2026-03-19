@@ -12,8 +12,20 @@
             <div class="panel__header">
                 <button id="panel-toggle" class="panel__toggle" type="button" aria-expanded="true">收起</button>
                 <p class="panel__eyebrow">Physics Curtain</p>
-                <h1>真实物理门帘</h1>
-                <p class="panel__intro">左键拖动“手”拨开门帘，右键按住移动施加风场。当前版本使用 Matter.js 做真实约束与碰撞。</p>
+                <h1>文字门帘</h1>
+                <p class="panel__intro">
+                    右键打开菜单<br>
+                    - 拖拽：抓住最近文字拖动<br>
+                    - 拨动：按鼠标移动速度给半径内文字施力<br>
+                    - 切断：按半径切断绳线（含额外连线）<br>
+                    此时<b>左键</b>点击菜单选择<br>
+                    <br>
+                    当模式为拖拽时，右键菜单变为<br>
+                    - 钉住：把当前字固定在当前锚点（未固定状态）<br>
+                    - 解除钉住：仅在该字已钉住时显示，点击后解除该字钉住（固定状态）<br>
+                    - 连线：固定当前字，下一次左键点另一个字创建额外连线<br>
+                    此时<b>右键</b>点击菜单选项选择
+                </p>
             </div>
 
             <label class="field">
