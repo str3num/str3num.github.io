@@ -34,7 +34,7 @@
                     <label class="field"><span>排版</span>
                         <select id="writing-mode">
                             <option value="horizontal">横排</option>
-                            <option value="vertical">竖排</option>
+                            <option value="vertical" selected>竖排</option>
                         </select>
                     </label>
                     <label class="field"><span>方向</span>
@@ -45,14 +45,13 @@
                     </label>
                     <label class="field"><span>开始秒</span><input id="layer-start" type="number" min="0" step="0.1" value="0"></label>
                     <label class="field"><span>结束秒</span><input id="layer-end" type="number" min="0.1" step="0.1" value="8"></label>
-                    <label class="field"><span>物理开始秒（留空=立即）</span><input id="physics-start" type="number" min="0" step="0.1" placeholder="留空"></label>
                     <label class="field field--full"><span>文字内容（多行）</span><textarea id="text-input" rows="6">Character Physics
 可录制真实物理
 停止后自动下载</textarea></label>
                     <label class="field"><span>字间距</span><input id="char-gap" type="range" min="18" max="90" value="44"></label>
                     <label class="field"><span>列间距</span><input id="column-gap" type="range" min="20" max="120" value="62"></label>
-                    <label class="field"><span>Y坐标</span><input id="top-padding" type="number" min="0" max="1600" step="1" value="90"></label>
-                    <label class="field"><span>X坐标</span><input id="anchor-lift" type="number" min="0" max="2400" step="1" value="72"></label>
+                    <label class="field"><span>Y坐标</span><input id="top-padding" type="number" min="0" max="1600" step="1" value="60"></label>
+                    <label class="field"><span>X坐标</span><input id="anchor-lift" type="number" min="0" max="2400" step="1" value="700"></label>
                     <label class="field"><span>右侧边距</span><input id="right-padding" type="range" min="10" max="220" value="88"></label>
                     <label class="field"><span>文字颜色</span><input id="fill-color" type="color" value="#111111"></label>
                     <label class="field"><span>描边颜色</span><input id="stroke-color" type="color" value="#ffffff"></label>
@@ -63,12 +62,18 @@
                     <label class="field"><span>弹性</span><input id="restitution" type="number" min="0" max="1" step="0.01" value="0.1"></label>
                     <label class="field"><span>绳刚度</span><input id="link-stiffness" type="number" min="0.1" max="1" step="0.01" value="0.94"></label>
                     <label class="field"><span>绳阻尼</span><input id="link-damping" type="number" min="0" max="0.3" step="0.01" value="0.06"></label>
-                    <label class="field field--toggle"><span>冻结物理（本图层）</span><input id="record-disable-physics" type="checkbox"></label>
                     <label class="field"><span>关键帧X</span><input id="kf-pos-x" type="number" step="1" value="0"></label>
                     <label class="field"><span>关键帧Y</span><input id="kf-pos-y" type="number" step="1" value="0"></label>
                     <label class="field"><span>关键帧旋转(°)</span><input id="kf-rotation" type="number" step="1" value="0"></label>
                     <label class="field"><span>关键帧缩放</span><input id="kf-scale" type="number" min="0.05" step="0.01" value="1"></label>
                     <label class="field"><span>关键帧透明度</span><input id="kf-opacity" type="number" min="0" max="1" step="0.01" value="1"></label>
+                    <label class="field"><span>关键帧字号</span><input id="kf-font-size" type="number" min="16" max="200" step="1" value="34"></label>
+                    <label class="field"><span>关键帧密度</span><input id="kf-density" type="number" min="0.0001" max="0.02" step="0.0001" value="0.0025"></label>
+                    <label class="field"><span>关键帧空气阻力</span><input id="kf-friction-air" type="number" min="0" max="0.5" step="0.005" value="0.05"></label>
+                    <label class="field"><span>关键帧弹性</span><input id="kf-restitution" type="number" min="0" max="1" step="0.01" value="0.1"></label>
+                    <label class="field"><span>关键帧绳刚度</span><input id="kf-link-stiffness" type="number" min="0.1" max="1" step="0.01" value="0.94"></label>
+                    <label class="field"><span>关键帧绳阻尼</span><input id="kf-link-damping" type="number" min="0" max="0.3" step="0.01" value="0.06"></label>
+                    <label class="field field--toggle"><span>此关键帧到下一关键帧执行物理</span><input id="kf-physics-enabled" type="checkbox" checked></label>
                     <label class="field"><span>关键帧缓动</span>
                         <select id="kf-easing">
                             <option value="linear">Linear</option>
@@ -138,7 +143,7 @@
                 <span id="mode-text">模式：拖拽</span>
                 <span id="time-text">00:00.000</span>
             </div>
-            <div class="timeline-dock">
+            <div id="timeline-dock" class="timeline-dock">
                 <div class="timeline-grid">
                     <label class="field"><span>时间轴时长(s)</span><input id="timeline-duration" type="number" min="1" max="1200" step="0.5" value="8"></label>
                     <label class="field"><span>当前时间(s)</span><input id="timeline-time" type="number" min="0" step="0.01" value="0"></label>
@@ -149,7 +154,10 @@
                     <label class="field field--full"><span>时间轴</span><input id="timeline-slider" type="range" min="0" max="8" step="0.01" value="0"></label>
                     <canvas id="timeline-track" class="timeline-track field--full" height="150"></canvas>
                 </div>
-                <button id="play-btn" type="button" class="ghost">播放时间轴</button>
+                <div class="timeline-actions">
+                    <button id="play-btn" type="button" class="ghost">播放时间轴</button>
+                    <button id="timeline-toggle" type="button" class="ghost" aria-expanded="true">收起时间轴</button>
+                </div>
             </div>
         </section>
     </main>

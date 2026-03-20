@@ -7,7 +7,6 @@ const controls = {
     layerName: document.getElementById("layer-name"),
     layerStart: document.getElementById("layer-start"),
     layerEnd: document.getElementById("layer-end"),
-    physicsStart: document.getElementById("physics-start"),
     text: document.getElementById("text-input"),
     fontFamily: document.getElementById("font-family"),
     fontSize: document.getElementById("font-size"),
@@ -43,6 +42,8 @@ const controls = {
     timelineTime: document.getElementById("timeline-time"),
     timelineSlider: document.getElementById("timeline-slider"),
     timelineTrack: document.getElementById("timeline-track"),
+    timelineDock: document.getElementById("timeline-dock"),
+    timelineToggle: document.getElementById("timeline-toggle"),
     timelineZoom: document.getElementById("timeline-zoom"),
     timelineSnap: document.getElementById("timeline-snap"),
     rangeStart: document.getElementById("range-start"),
@@ -52,6 +53,13 @@ const controls = {
     kfRotation: document.getElementById("kf-rotation"),
     kfScale: document.getElementById("kf-scale"),
     kfOpacity: document.getElementById("kf-opacity"),
+    kfFontSize: document.getElementById("kf-font-size"),
+    kfDensity: document.getElementById("kf-density"),
+    kfFrictionAir: document.getElementById("kf-friction-air"),
+    kfRestitution: document.getElementById("kf-restitution"),
+    kfLinkStiffness: document.getElementById("kf-link-stiffness"),
+    kfLinkDamping: document.getElementById("kf-link-damping"),
+    kfPhysicsEnabled: document.getElementById("kf-physics-enabled"),
     kfEasing: document.getElementById("kf-easing"),
     kfBezier: document.getElementById("kf-bezier"),
     addKfBtn: document.getElementById("add-kf-btn"),
@@ -62,7 +70,6 @@ const controls = {
     recordBitrate: document.getElementById("record-bitrate"),
     outputWidth: document.getElementById("output-width"),
     outputHeight: document.getElementById("output-height"),
-    recordDisablePhysics: document.getElementById("record-disable-physics"),
     recordFrameX: document.getElementById("record-frame-x"),
     recordFrameY: document.getElementById("record-frame-y"),
     recordFrameWidth: document.getElementById("record-frame-width"),
@@ -116,21 +123,19 @@ const layerTemplate = {
     fontWeight: 500,
     charGap: 44,
     columnGap: 62,
-    topPadding: 90,
-    anchorLift: 72,
+    topPadding: 60,
+    anchorLift: 700,
     rightPadding: 88,
     fillColor: "#111111",
     strokeColor: "#ffffff",
     strokeWidth: 0,
-    writingMode: "horizontal",
+    writingMode: "vertical",
     flowDirection: "rtl",
     density: 0.0025,
     frictionAir: 0.05,
     restitution: 0.1,
     linkStiffness: 0.94,
     linkDamping: 0.06,
-    freezePhysics: false,
-    physicsStart: null,
     maxCharsPerStrand: 100,
     start: 0,
     end: 8,
@@ -142,6 +147,13 @@ const layerTemplate = {
             rotation: 0,
             scale: 1,
             opacity: 1,
+            fontSize: 34,
+            density: 0.0025,
+            frictionAir: 0.05,
+            restitution: 0.1,
+            linkStiffness: 0.94,
+            linkDamping: 0.06,
+            physicsEnabled: true,
             easing: "linear",
             bezier: [0.25, 0.1, 0.25, 1]
         }
@@ -187,7 +199,9 @@ const state = {
         frames: [],
         lastSampleAt: 0,
         recordCanvas: null,
-        recordCtx: null
+        recordCtx: null,
+        prevRangeStart: 0,
+        prevRangeEnd: globalDefaults.timelineDuration
     },
     debug: {
         enabled: false,
@@ -215,12 +229,10 @@ function summarizeLayer(layer) {
         name: layer.name,
         start: roundNum(layer.start),
         end: roundNum(layer.end),
-        physicsStart: Number.isFinite(layer.physicsStart) ? roundNum(layer.physicsStart) : null,
         anchorLift: roundNum(layer.anchorLift),
         topPadding: roundNum(layer.topPadding),
         charGap: roundNum(layer.charGap),
         columnGap: roundNum(layer.columnGap),
-        freezePhysics: !!layer.freezePhysics,
         textLength: (layer.text || "").length
     };
 }
@@ -295,13 +307,11 @@ function clamp(value, min, max, fallback) {
 }
 
 function makeLayer(index) {
-    const defaultAnchorX = state.width > 0 ? Math.max(120, state.width - 80) : 1280;
     return {
         id: `layer-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
         ...layerTemplate,
         keyframes: layerTemplate.keyframes.map((kf) => ({ ...kf, bezier: [...kf.bezier] })),
         name: `图层 ${index + 1}`,
-        anchorLift: defaultAnchorX,
         text: index === 0
             ? "Character Physics\n可录制真实物理\n停止后自动下载"
             : `文字图层 ${index + 1}`
@@ -380,38 +390,82 @@ function applyEasing(t, easing, bezier) {
     return n;
 }
 
+function normalizeKeyframe(layer, keyframe, fallbackPhysicsEnabled) {
+    const kf = keyframe || {};
+    const physicsEnabled = typeof kf.physicsEnabled === "boolean"
+        ? kf.physicsEnabled
+        : !!fallbackPhysicsEnabled;
+    return {
+        x: Number.isFinite(kf.x) ? kf.x : 0,
+        y: Number.isFinite(kf.y) ? kf.y : 0,
+        rotation: Number.isFinite(kf.rotation) ? kf.rotation : 0,
+        scale: clamp(kf.scale, 0.05, 20, 1),
+        opacity: clamp(kf.opacity, 0, 1, 1),
+        fontSize: clamp(kf.fontSize, 16, 200, layer.fontSize),
+        density: clamp(kf.density, 0.0001, 0.02, layer.density),
+        frictionAir: clamp(kf.frictionAir, 0, 0.5, layer.frictionAir),
+        restitution: clamp(kf.restitution, 0, 1, layer.restitution),
+        linkStiffness: clamp(kf.linkStiffness, 0.1, 1, layer.linkStiffness),
+        linkDamping: clamp(kf.linkDamping, 0, 0.3, layer.linkDamping),
+        physicsEnabled
+    };
+}
+
 function getLayerAnimAtTime(layer, time) {
+    const defaultPhysicsEnabled = true;
     if (!layer.keyframes || layer.keyframes.length === 0) {
-        return { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 };
+        return normalizeKeyframe(layer, null, defaultPhysicsEnabled);
     }
     sortKeyframes(layer);
-    if (time <= layer.keyframes[0].time) {
-        const kf = layer.keyframes[0];
-        return { x: kf.x, y: kf.y, rotation: kf.rotation, scale: kf.scale, opacity: kf.opacity };
+    const normalized = [];
+    let carryPhysicsEnabled = defaultPhysicsEnabled;
+    layer.keyframes.forEach((raw) => {
+        const one = normalizeKeyframe(layer, raw, carryPhysicsEnabled);
+        normalized.push({
+            ...one,
+            time: raw.time,
+            easing: raw.easing,
+            bezier: raw.bezier
+        });
+        carryPhysicsEnabled = one.physicsEnabled;
+    });
+
+    if (time <= normalized[0].time) {
+        return normalized[0];
     }
-    const last = layer.keyframes[layer.keyframes.length - 1];
+    const last = normalized[normalized.length - 1];
     if (time >= last.time) {
-        return { x: last.x, y: last.y, rotation: last.rotation, scale: last.scale, opacity: last.opacity };
+        return last;
     }
 
-    for (let i = 0; i < layer.keyframes.length - 1; i += 1) {
-        const a = layer.keyframes[i];
-        const b = layer.keyframes[i + 1];
-        if (time < a.time || time > b.time) {
+    for (let i = 0; i < normalized.length - 1; i += 1) {
+        const aRaw = normalized[i];
+        const bRaw = normalized[i + 1];
+        if (time < aRaw.time || time > bRaw.time) {
             continue;
         }
-        const span = Math.max(0.0001, b.time - a.time);
-        const raw = (time - a.time) / span;
-        const t = applyEasing(raw, b.easing || "linear", b.bezier || [0.25, 0.1, 0.25, 1]);
+        const span = Math.max(0.0001, bRaw.time - aRaw.time);
+        const raw = (time - aRaw.time) / span;
+        const a = aRaw;
+        const b = bRaw;
+        const next = bRaw || {};
+        const t = applyEasing(raw, next.easing || "linear", next.bezier || [0.25, 0.1, 0.25, 1]);
         return {
             x: a.x + (b.x - a.x) * t,
             y: a.y + (b.y - a.y) * t,
             rotation: a.rotation + (b.rotation - a.rotation) * t,
             scale: a.scale + (b.scale - a.scale) * t,
-            opacity: a.opacity + (b.opacity - a.opacity) * t
+            opacity: a.opacity + (b.opacity - a.opacity) * t,
+            fontSize: a.fontSize + (b.fontSize - a.fontSize) * t,
+            density: a.density + (b.density - a.density) * t,
+            frictionAir: a.frictionAir + (b.frictionAir - a.frictionAir) * t,
+            restitution: a.restitution + (b.restitution - a.restitution) * t,
+            linkStiffness: a.linkStiffness + (b.linkStiffness - a.linkStiffness) * t,
+            linkDamping: a.linkDamping + (b.linkDamping - a.linkDamping) * t,
+            physicsEnabled: raw < 1 ? a.physicsEnabled : b.physicsEnabled
         };
     }
-    return { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 };
+    return normalizeKeyframe(layer, null, defaultPhysicsEnabled);
 }
 
 function getTimeFromTrackX(x) {
@@ -567,8 +621,6 @@ function buildCurtain() {
         const angleRad = (anim.rotation * Math.PI) / 180;
         const cos = Math.cos(angleRad);
         const sin = Math.sin(angleRad);
-        const hasPhysicsStart = Number.isFinite(layer.physicsStart);
-        const beforePhysics = hasPhysicsStart && state.timeline.currentTime < layer.physicsStart;
         const lines = parseText(layer.text, layer.maxCharsPerStrand);
         lines.forEach((strandText, strandIndex) => {
             const composite = Composite.create();
@@ -599,11 +651,12 @@ function buildCurtain() {
                 const rotY = scaledX * sin + scaledY * cos;
                 const spawnX = anchorX + anim.x + rotX;
                 const spawnY = anchorY + anim.y + rotY;
-                const body = Bodies.circle(spawnX, spawnY, layer.fontSize * 0.34, {
-                    density: layer.density,
-                    frictionAir: layer.frictionAir,
-                    restitution: layer.restitution,
-                    isStatic: layer.freezePhysics,
+                const nodeRadius = Math.max(2, anim.fontSize * anim.scale * 0.34);
+                const body = Bodies.circle(spawnX, spawnY, nodeRadius, {
+                    density: anim.density,
+                    frictionAir: anim.frictionAir,
+                    restitution: anim.restitution,
+                    isStatic: !anim.physicsEnabled,
                     angle: angleRad,
                     collisionFilter: {
                         category: 0x0002,
@@ -617,6 +670,7 @@ function buildCurtain() {
                     layerId: layer.id,
                     baseX: x,
                     baseY: y,
+                    radius: nodeRadius,
                     charIndex,
                     strandIndex
                 });
@@ -626,9 +680,9 @@ function buildCurtain() {
                     bodyA: previousBody,
                     pointA: previousBody ? undefined : { x: anchorX, y: anchorY },
                     bodyB: body,
-                    length: layer.charGap,
-                    stiffness: layer.linkStiffness,
-                    damping: layer.linkDamping,
+                    length: layer.charGap * anim.scale,
+                    stiffness: anim.linkStiffness,
+                    damping: anim.linkDamping,
                     render: { visible: false }
                 });
                 links.push(link);
@@ -712,7 +766,7 @@ function renderSceneToContext(targetCtx, viewport, outWidth, outHeight, drawWind
             return;
         }
         const anim = getLayerAnimAtTime(layer, state.timeline.currentTime);
-        targetCtx.font = `${layer.fontWeight} ${layer.fontSize * scale}px "${layer.fontFamily}"`;
+        targetCtx.font = `${layer.fontWeight} ${Math.max(1, anim.fontSize * anim.scale * scale)}px "${layer.fontFamily}"`;
         targetCtx.textAlign = "center";
         targetCtx.textBaseline = "middle";
         targetCtx.globalAlpha = clamp(anim.opacity, 0, 1, 1);
@@ -721,7 +775,7 @@ function renderSceneToContext(targetCtx, viewport, outWidth, outHeight, drawWind
             targetCtx.translate(mapX(node.body.position.x), mapY(node.body.position.y));
             targetCtx.rotate(node.body.angle);
             if (layer.strokeWidth > 0) {
-                targetCtx.lineWidth = layer.strokeWidth * scale;
+                targetCtx.lineWidth = layer.strokeWidth * anim.scale * scale;
                 targetCtx.strokeStyle = layer.strokeColor;
                 targetCtx.strokeText(node.char, 0, 0);
             }
@@ -881,6 +935,18 @@ function updateTimeline(now) {
     }
     const dt = (now - state.timeline.lastNow) / 1000;
     state.timeline.lastNow = now;
+    if (state.recording.active) {
+        const duration = state.timeline.duration;
+        const nextRecordingTime = state.timeline.currentTime + dt;
+        if (nextRecordingTime >= duration) {
+            setTimelineTime(duration);
+            state.timeline.playing = false;
+            controls.playBtn.textContent = "播放时间轴";
+            return;
+        }
+        setTimelineTime(nextRecordingTime);
+        return;
+    }
     const rangeStart = clamp(state.timeline.rangeStart, 0, state.timeline.duration, 0);
     const rangeEnd = clamp(state.timeline.rangeEnd, rangeStart + 0.01, state.timeline.duration, state.timeline.duration);
     let next = state.timeline.currentTime + dt;
@@ -922,9 +988,7 @@ function applyTimelineToBodies() {
             return;
         }
         const anim = getLayerAnimAtTime(layer, state.timeline.currentTime);
-        const hasPhysicsStart = Number.isFinite(layer.physicsStart);
-        const beforePhysics = hasPhysicsStart && state.timeline.currentTime < layer.physicsStart;
-        const shouldStatic = layer.freezePhysics;
+        const shouldStatic = !anim.physicsEnabled;
         const angleRad = (anim.rotation * Math.PI) / 180;
         const cos = Math.cos(angleRad);
         const sin = Math.sin(angleRad);
@@ -937,6 +1001,8 @@ function applyTimelineToBodies() {
                 return;
             }
             link.length = layer.charGap * anim.scale;
+            link.stiffness = anim.linkStiffness;
+            link.damping = anim.linkDamping;
             if (!link.bodyA) {
                 link.pointA.x = anchorX;
                 link.pointA.y = anchorY;
@@ -952,21 +1018,27 @@ function applyTimelineToBodies() {
             const rotY = scaledX * sin + scaledY * cos;
             const targetX = anchorX + rotX;
             const targetY = anchorY + rotY;
+            const targetRadius = Math.max(2, anim.fontSize * anim.scale * 0.34);
+
+            if (Math.abs((node.radius || targetRadius) - targetRadius) > 0.0001 && targetRadius > 0.001) {
+                const prevRadius = Math.max(0.001, node.radius || targetRadius);
+                const scaleFactor = targetRadius / prevRadius;
+                Body.scale(node.body, scaleFactor, scaleFactor);
+                node.radius = targetRadius;
+            }
+            if (Math.abs(node.body.frictionAir - anim.frictionAir) > 0.000001) {
+                node.body.frictionAir = anim.frictionAir;
+            }
+            if (Math.abs(node.body.restitution - anim.restitution) > 0.000001) {
+                node.body.restitution = anim.restitution;
+            }
+            if (Math.abs(node.body.density - anim.density) > 0.0000001) {
+                Body.setDensity(node.body, anim.density);
+            }
 
             if (shouldStatic) {
                 if (!node.body.isStatic) {
                     Body.setStatic(node.body, true);
-                }
-                Body.setVelocity(node.body, { x: 0, y: 0 });
-                Body.setAngularVelocity(node.body, 0);
-                Body.setPosition(node.body, { x: targetX, y: targetY });
-                Body.setAngle(node.body, angleRad);
-                return;
-            }
-
-            if (beforePhysics) {
-                if (node.body.isStatic) {
-                    Body.setStatic(node.body, false);
                 }
                 Body.setVelocity(node.body, { x: 0, y: 0 });
                 Body.setAngularVelocity(node.body, 0);
@@ -1065,6 +1137,9 @@ function render(now) {
     if (state.recording.active) {
         timeText.textContent = formatTime(now - state.recording.startAt);
         sampleRecordingFrame(now);
+        if (state.timeline.currentTime >= state.timeline.duration - 0.0005) {
+            stopRecording();
+        }
     }
     requestAnimationFrame(render);
 }
@@ -1244,7 +1319,6 @@ function applyLayerToInputs(layer) {
     controls.layerName.value = layer.name;
     controls.layerStart.value = String(layer.start);
     controls.layerEnd.value = String(layer.end);
-    controls.physicsStart.value = Number.isFinite(layer.physicsStart) ? String(layer.physicsStart) : "";
     controls.text.value = layer.text;
     controls.fontFamily.value = layer.fontFamily;
     controls.fontSize.value = String(layer.fontSize);
@@ -1264,20 +1338,38 @@ function applyLayerToInputs(layer) {
     controls.restitution.value = String(layer.restitution);
     controls.linkStiffness.value = String(layer.linkStiffness);
     controls.linkDamping.value = String(layer.linkDamping);
-    controls.recordDisablePhysics.checked = layer.freezePhysics;
     controls.maxCharsPerStrand.value = String(layer.maxCharsPerStrand);
     const selectedKf = state.timeline.selectedKeyframe
         && state.timeline.selectedKeyframe.layerId === layer.id
         ? layer.keyframes[state.timeline.selectedKeyframe.index]
         : null;
-    const kf = selectedKf || getLayerAnimAtTime(layer, state.timeline.currentTime);
+    const atSelectedKeyframe = selectedKf
+        && Math.abs((selectedKf.time || 0) - state.timeline.currentTime) <= 0.0005;
+    const kf = atSelectedKeyframe ? selectedKf : getLayerAnimAtTime(layer, state.timeline.currentTime);
     controls.kfPosX.value = String(Number((kf.x || 0).toFixed(3)));
     controls.kfPosY.value = String(Number((kf.y || 0).toFixed(3)));
     controls.kfRotation.value = String(Number((kf.rotation || 0).toFixed(3)));
     controls.kfScale.value = String(Number((kf.scale || 1).toFixed(3)));
     controls.kfOpacity.value = String(Number((kf.opacity || 1).toFixed(3)));
-    controls.kfEasing.value = selectedKf ? (selectedKf.easing || "linear") : "linear";
-    controls.kfBezier.value = (selectedKf ? (selectedKf.bezier || [0.25, 0.1, 0.25, 1]) : [0.25, 0.1, 0.25, 1]).join(",");
+    const kfFontSize = Number.isFinite(kf.fontSize) ? kf.fontSize : layer.fontSize;
+    const kfDensity = Number.isFinite(kf.density) ? kf.density : layer.density;
+    const kfFrictionAir = Number.isFinite(kf.frictionAir) ? kf.frictionAir : layer.frictionAir;
+    const kfRestitution = Number.isFinite(kf.restitution) ? kf.restitution : layer.restitution;
+    const kfLinkStiffness = Number.isFinite(kf.linkStiffness) ? kf.linkStiffness : layer.linkStiffness;
+    const kfLinkDamping = Number.isFinite(kf.linkDamping) ? kf.linkDamping : layer.linkDamping;
+    controls.kfFontSize.value = String(Number(kfFontSize.toFixed(3)));
+    controls.kfDensity.value = String(Number(kfDensity.toFixed(6)));
+    controls.kfFrictionAir.value = String(Number(kfFrictionAir.toFixed(6)));
+    controls.kfRestitution.value = String(Number(kfRestitution.toFixed(6)));
+    controls.kfLinkStiffness.value = String(Number(kfLinkStiffness.toFixed(6)));
+    controls.kfLinkDamping.value = String(Number(kfLinkDamping.toFixed(6)));
+    controls.kfPhysicsEnabled.checked = kf.physicsEnabled !== false;
+    controls.kfEasing.value = atSelectedKeyframe ? (selectedKf.easing || "linear") : "linear";
+    controls.kfBezier.value = (
+        atSelectedKeyframe
+            ? (selectedKf.bezier || [0.25, 0.1, 0.25, 1])
+            : [0.25, 0.1, 0.25, 1]
+    ).join(",");
     debugLog("apply_layer_to_inputs", {
         layer: summarizeLayer(layer)
     });
@@ -1299,13 +1391,6 @@ function applyInputsToSelectedLayer() {
     );
     layer.start = nextStart;
     layer.end = nextEnd;
-    const rawPhysicsStart = String(controls.physicsStart.value).trim();
-    if (rawPhysicsStart === "") {
-        layer.physicsStart = null;
-    } else {
-        const physicsFallback = Number.isFinite(layer.physicsStart) ? layer.physicsStart : layer.start;
-        layer.physicsStart = clamp(rawPhysicsStart, layer.start, layer.end, physicsFallback);
-    }
     layer.text = controls.text.value;
     layer.fontFamily = controls.fontFamily.value.trim() || layerTemplate.fontFamily;
     layer.fontSize = clamp(controls.fontSize.value, 16, 72, layer.fontSize);
@@ -1325,7 +1410,6 @@ function applyInputsToSelectedLayer() {
     layer.restitution = clamp(controls.restitution.value, 0, 1, layer.restitution);
     layer.linkStiffness = clamp(controls.linkStiffness.value, 0.1, 1, layer.linkStiffness);
     layer.linkDamping = clamp(controls.linkDamping.value, 0, 0.3, layer.linkDamping);
-    layer.freezePhysics = controls.recordDisablePhysics.checked;
     layer.maxCharsPerStrand = clamp(controls.maxCharsPerStrand.value, 1, 200, layer.maxCharsPerStrand);
     const after = summarizeLayer(layer);
     debugLog("apply_inputs_to_layer", { before, after });
@@ -1359,6 +1443,10 @@ function selectLayer(layerId) {
 }
 
 function getKeyframeFromInputs(time) {
+    const layer = getSelectedLayer();
+    if (!layer) {
+        return null;
+    }
     return {
         time: clamp(time, 0, state.timeline.duration, 0),
         x: Number(controls.kfPosX.value) || 0,
@@ -1366,6 +1454,13 @@ function getKeyframeFromInputs(time) {
         rotation: Number(controls.kfRotation.value) || 0,
         scale: clamp(controls.kfScale.value, 0.05, 20, 1),
         opacity: clamp(controls.kfOpacity.value, 0, 1, 1),
+        fontSize: clamp(controls.kfFontSize.value, 16, 200, layer.fontSize),
+        density: clamp(controls.kfDensity.value, 0.0001, 0.02, layer.density),
+        frictionAir: clamp(controls.kfFrictionAir.value, 0, 0.5, layer.frictionAir),
+        restitution: clamp(controls.kfRestitution.value, 0, 1, layer.restitution),
+        linkStiffness: clamp(controls.kfLinkStiffness.value, 0.1, 1, layer.linkStiffness),
+        linkDamping: clamp(controls.kfLinkDamping.value, 0, 0.3, layer.linkDamping),
+        physicsEnabled: controls.kfPhysicsEnabled.checked,
         easing: controls.kfEasing.value || "linear",
         bezier: parseBezier(controls.kfBezier.value)
     };
@@ -1389,6 +1484,9 @@ function addKeyframe() {
         return;
     }
     const kf = getKeyframeFromInputs(state.timeline.currentTime);
+    if (!kf) {
+        return;
+    }
     const index = findKeyframeIndexAtTime(layer, kf.time);
     if (index >= 0) {
         layer.keyframes[index] = kf;
@@ -1413,7 +1511,11 @@ function updateSelectedKeyframe() {
         return;
     }
     const currentTime = layer.keyframes[selected.index].time;
-    layer.keyframes[selected.index] = getKeyframeFromInputs(currentTime);
+    const kf = getKeyframeFromInputs(currentTime);
+    if (!kf) {
+        return;
+    }
+    layer.keyframes[selected.index] = kf;
     sortKeyframes(layer);
     state.timeline.selectedKeyframe = { layerId: layer.id, index: findKeyframeIndexAtTime(layer, currentTime, 0.0001) };
     applyLayerToInputs(layer);
@@ -1512,6 +1614,12 @@ function setPanelCollapsed(collapsed) {
     stagePanelToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
 }
 
+function setTimelineCollapsed(collapsed) {
+    stage.classList.toggle("is-timeline-collapsed", collapsed);
+    controls.timelineToggle.textContent = collapsed ? "展开时间轴" : "收起时间轴";
+    controls.timelineToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+}
+
 function setRecordUi(active) {
     controls.recordBtn.disabled = active;
     controls.stopBtn.disabled = !active;
@@ -1562,12 +1670,20 @@ function startRecording() {
     const stream = recordCanvas.captureStream(fps);
     const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate });
 
+    state.recording.prevRangeStart = state.timeline.rangeStart;
+    state.recording.prevRangeEnd = state.timeline.rangeEnd;
     state.recording.active = true;
     state.recording.startAt = performance.now();
     state.recording.chunks = [];
     state.recording.frames = [];
     state.recording.lastSampleAt = 0;
     state.recording.mediaRecorder = recorder;
+    state.timeline.playing = true;
+    state.timeline.lastNow = 0;
+    state.timeline.rangeStart = 0;
+    state.timeline.rangeEnd = state.timeline.duration;
+    setTimelineTime(0);
+    controls.playBtn.textContent = "暂停时间轴";
 
     recorder.addEventListener("dataavailable", (event) => {
         if (event.data && event.data.size > 0) {
@@ -1604,6 +1720,17 @@ function stopRecording() {
         return;
     }
     state.recording.active = false;
+    state.timeline.playing = false;
+    state.timeline.lastNow = 0;
+    state.timeline.rangeStart = clamp(state.recording.prevRangeStart, 0, state.timeline.duration, 0);
+    state.timeline.rangeEnd = clamp(
+        state.recording.prevRangeEnd,
+        state.timeline.rangeStart + 0.01,
+        state.timeline.duration,
+        state.timeline.duration
+    );
+    controls.playBtn.textContent = "播放时间轴";
+    updateTimelineInputs();
     setRecordUi(false);
     state.recording.mediaRecorder.stop();
     state.recording.mediaRecorder = null;
@@ -1666,7 +1793,6 @@ controls.addLayerBtn.addEventListener("click", () => {
     const layer = makeLayer(state.layers.length);
     layer.start = 0;
     layer.end = state.timeline.duration;
-    layer.physicsStart = null;
     state.layers.push(layer);
     debugLog("add_layer", {
         layer: summarizeLayer(layer),
@@ -1693,7 +1819,6 @@ controls.removeLayerBtn.addEventListener("click", () => {
     controls.layerName,
     controls.layerStart,
     controls.layerEnd,
-    controls.physicsStart,
     controls.text,
     controls.fontFamily,
     controls.fontSize,
@@ -1713,7 +1838,6 @@ controls.removeLayerBtn.addEventListener("click", () => {
     controls.restitution,
     controls.linkStiffness,
     controls.linkDamping,
-    controls.recordDisablePhysics,
     controls.maxCharsPerStrand
 ].forEach((el) => {
     el.addEventListener("input", () => {
@@ -1741,11 +1865,6 @@ controls.timelineDuration.addEventListener("input", () => {
     state.layers.forEach((layer) => {
         layer.start = clamp(layer.start, 0, state.timeline.duration, 0);
         layer.end = clamp(layer.end, layer.start + 0.01, state.timeline.duration, state.timeline.duration);
-        if (Number.isFinite(layer.physicsStart)) {
-            layer.physicsStart = clamp(layer.physicsStart, layer.start, layer.end, layer.start);
-        } else {
-            layer.physicsStart = null;
-        }
         if (layer.keyframes) {
             layer.keyframes.forEach((kf) => {
                 kf.time = clamp(kf.time, 0, state.timeline.duration, kf.time);
@@ -1765,12 +1884,14 @@ controls.timelineSlider.addEventListener("input", () => {
     state.timeline.playing = false;
     controls.playBtn.textContent = "播放时间轴";
     setTimelineTime(controls.timelineSlider.value, { snap: true });
+    applyLayerToInputs(getSelectedLayer());
     rebuildIfNeeded(true);
 });
 controls.timelineTime.addEventListener("input", () => {
     state.timeline.playing = false;
     controls.playBtn.textContent = "播放时间轴";
     setTimelineTime(controls.timelineTime.value, { snap: true });
+    applyLayerToInputs(getSelectedLayer());
     rebuildIfNeeded(true);
 });
 
@@ -1801,6 +1922,7 @@ controls.timelineTrack.addEventListener("pointerdown", (event) => {
     const x = event.clientX - rect.left;
     const t = maybeSnapTime(getTimeFromTrackX(x));
     setTimelineTime(t);
+    applyLayerToInputs(getSelectedLayer());
 
     const layer = getSelectedLayer();
     if (layer && layer.keyframes) {
@@ -1868,6 +1990,10 @@ stagePanelToggle.addEventListener("click", () => {
         rebuildIfNeeded(true);
     });
 });
+controls.timelineToggle.addEventListener("click", () => {
+    const collapsed = !stage.classList.contains("is-timeline-collapsed");
+    setTimelineCollapsed(collapsed);
+});
 
 window.addEventListener("resize", () => {
     resizeStage();
@@ -1877,5 +2003,6 @@ window.addEventListener("resize", () => {
 resizeStage();
 resetAll();
 setPanelCollapsed(false);
+setTimelineCollapsed(false);
 Runner.run(runner, engine);
 requestAnimationFrame(render);
