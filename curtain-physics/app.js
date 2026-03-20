@@ -51,7 +51,7 @@ const CONFIG = {
     },
     body: {
         density: 0.0025,
-        frictionAir: 0.05,
+        frictionAir: 0.01,
         restitution: 0.1,
         collisionPadding: 0.34,
         handRadius: 54,
@@ -109,7 +109,7 @@ const letterLayer = document.getElementById("letter-layer");
 const threadCtx = threadCanvas.getContext("2d");
 
 const engine = Engine.create({
-    gravity: { x: 0, y: 0.92 }
+    gravity: { x: 0, y: 2 }
 });
 const runner = Runner.create();
 

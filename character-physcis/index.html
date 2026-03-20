@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Physcis · Physics Recorder</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <main class="layout">
+        <section class="panel">
+            <div class="panel__header">
+                <button id="panel-toggle" class="panel-toggle" type="button" aria-expanded="true">收起</button>
+                <h1>文字物理录制</h1>
+                <p class="hint">支持多图层、独立物理参数与时间轴。</p>
+            </div>
+
+            <div class="field panel-block">
+                <span>文字图层</span>
+                <select id="layer-select" size="4"></select>
+                <div class="actions actions--inline">
+                    <button id="add-layer-btn" type="button" class="ghost">新增图层</button>
+                    <button id="remove-layer-btn" type="button" class="ghost">删除图层</button>
+                </div>
+            </div>
+
+            <details class="panel-group" open>
+                <summary>图层设置</summary>
+                <div class="field-grid">
+                    <label class="field"><span>图层名</span><input id="layer-name" value="图层 1"></label>
+                    <label class="field"><span>字体</span><input id="font-family" value="FangSong"></label>
+                    <label class="field"><span>字号</span><input id="font-size" type="range" min="16" max="72" value="34"></label>
+                    <label class="field"><span>字重</span><input id="font-weight" type="number" min="100" max="900" step="100" value="500"></label>
+                    <label class="field"><span>排版</span>
+                        <select id="writing-mode">
+                            <option value="horizontal">横排</option>
+                            <option value="vertical">竖排</option>
+                        </select>
+                    </label>
+                    <label class="field"><span>方向</span>
+                        <select id="flow-direction">
+                            <option value="rtl">从右到左</option>
+                            <option value="ltr">从左到右</option>
+                        </select>
+                    </label>
+                    <label class="field"><span>开始秒</span><input id="layer-start" type="number" min="0" step="0.1" value="0"></label>
+                    <label class="field"><span>结束秒</span><input id="layer-end" type="number" min="0.1" step="0.1" value="8"></label>
+                    <label class="field"><span>物理开始秒（留空=立即）</span><input id="physics-start" type="number" min="0" step="0.1" placeholder="留空"></label>
+                    <label class="field field--full"><span>文字内容（多行）</span><textarea id="text-input" rows="6">Character Physics
+可录制真实物理
+停止后自动下载</textarea></label>
+                    <label class="field"><span>字间距</span><input id="char-gap" type="range" min="18" max="90" value="44"></label>
+                    <label class="field"><span>列间距</span><input id="column-gap" type="range" min="20" max="120" value="62"></label>
+                    <label class="field"><span>Y坐标</span><input id="top-padding" type="number" min="0" max="1600" step="1" value="90"></label>
+                    <label class="field"><span>X坐标</span><input id="anchor-lift" type="number" min="0" max="2400" step="1" value="72"></label>
+                    <label class="field"><span>右侧边距</span><input id="right-padding" type="range" min="10" max="220" value="88"></label>
+                    <label class="field"><span>文字颜色</span><input id="fill-color" type="color" value="#111111"></label>
+                    <label class="field"><span>描边颜色</span><input id="stroke-color" type="color" value="#ffffff"></label>
+                    <label class="field"><span>描边宽度</span><input id="stroke-width" type="range" min="0" max="12" step="0.5" value="0"></label>
+                    <label class="field"><span>每列最大字数</span><input id="max-chars-per-strand" type="number" min="1" max="200" step="1" value="100"></label>
+                    <label class="field"><span>密度</span><input id="density" type="number" min="0.0001" max="0.02" step="0.0001" value="0.0025"></label>
+                    <label class="field"><span>空气阻力</span><input id="friction-air" type="number" min="0" max="0.5" step="0.005" value="0.05"></label>
+                    <label class="field"><span>弹性</span><input id="restitution" type="number" min="0" max="1" step="0.01" value="0.1"></label>
+                    <label class="field"><span>绳刚度</span><input id="link-stiffness" type="number" min="0.1" max="1" step="0.01" value="0.94"></label>
+                    <label class="field"><span>绳阻尼</span><input id="link-damping" type="number" min="0" max="0.3" step="0.01" value="0.06"></label>
+                    <label class="field field--toggle"><span>冻结物理（本图层）</span><input id="record-disable-physics" type="checkbox"></label>
+                    <label class="field"><span>关键帧X</span><input id="kf-pos-x" type="number" step="1" value="0"></label>
+                    <label class="field"><span>关键帧Y</span><input id="kf-pos-y" type="number" step="1" value="0"></label>
+                    <label class="field"><span>关键帧旋转(°)</span><input id="kf-rotation" type="number" step="1" value="0"></label>
+                    <label class="field"><span>关键帧缩放</span><input id="kf-scale" type="number" min="0.05" step="0.01" value="1"></label>
+                    <label class="field"><span>关键帧透明度</span><input id="kf-opacity" type="number" min="0" max="1" step="0.01" value="1"></label>
+                    <label class="field"><span>关键帧缓动</span>
+                        <select id="kf-easing">
+                            <option value="linear">Linear</option>
+                            <option value="easeIn">Ease In</option>
+                            <option value="easeOut">Ease Out</option>
+                            <option value="custom">自定义Bezier</option>
+                        </select>
+                    </label>
+                    <label class="field field--full"><span>Bezier(c1x,c1y,c2x,c2y)</span><input id="kf-bezier" value="0.25,0.1,0.25,1"></label>
+                    <div class="actions actions--inline field--full">
+                        <button id="add-kf-btn" type="button" class="ghost">添加关键帧</button>
+                        <button id="update-kf-btn" type="button" class="ghost">更新关键帧</button>
+                    </div>
+                    <button id="delete-kf-btn" type="button" class="ghost field--full">删除关键帧</button>
+                </div>
+            </details>
+
+            <details class="panel-group" open>
+                <summary>交互模式</summary>
+                <div class="field-grid">
+                    <label class="field"><span>交互模式</span>
+                        <select id="tool-mode">
+                            <option value="hand">拖拽</option>
+                            <option value="wind">风场</option>
+                            <option value="cut">切断</option>
+                        </select>
+                    </label>
+                    <label class="field"><span>重力 X</span><input id="gravity-x" type="number" min="-3" max="3" step="0.01" value="0"></label>
+                    <label class="field"><span>重力 Y</span><input id="gravity-y" type="number" min="-3" max="3" step="0.01" value="0.92"></label>
+                    <label class="field"><span>拖拽刚度</span><input id="drag-stiffness" type="number" min="0.01" max="1" step="0.01" value="0.18"></label>
+                    <label class="field"><span>拖拽阻尼</span><input id="drag-damping" type="number" min="0" max="0.5" step="0.01" value="0.12"></label>
+                    <label class="field"><span>风场半径</span><input id="wind-radius" type="number" min="20" max="800" step="1" value="190"></label>
+                    <label class="field"><span>风场强度</span><input id="wind-strength" type="number" min="0.0001" max="0.08" step="0.0001" value="0.003"></label>
+                    <label class="field"><span>切断半径</span><input id="cut-radius" type="number" min="4" max="160" step="1" value="34"></label>
+                    <label class="field"><span>地面高度</span><input id="ground-height" type="number" min="0" max="400" step="1" value="86"></label>
+                    <label class="field field--toggle"><span>文字碰撞</span><input id="collision-enabled" type="checkbox" checked></label>
+                    <label class="field field--toggle"><span>回正</span><input id="upright-enabled" type="checkbox"></label>
+                </div>
+            </details>
+
+            <details class="panel-group" open>
+                <summary>录制参数</summary>
+                <div class="record-grid">
+                    <label class="field"><span>录制 FPS</span><input id="record-fps" type="number" min="12" max="60" value="30"></label>
+                    <label class="field"><span>码率(Mbps)</span><input id="record-bitrate" type="number" min="1" max="30" value="8"></label>
+                    <label class="field"><span>输出宽</span><input id="output-width" type="number" min="64" step="1" value="1920"></label>
+                    <label class="field"><span>输出高</span><input id="output-height" type="number" min="64" step="1" value="1080"></label>
+                    <label class="field"><span>录制框 X</span><input id="record-frame-x" type="number" min="0" step="1" value="80"></label>
+                    <label class="field"><span>录制框 Y</span><input id="record-frame-y" type="number" min="0" step="1" value="60"></label>
+                    <label class="field"><span>录制框宽</span><input id="record-frame-width" type="number" min="64" step="1" value="1280"></label>
+                    <label class="field"><span>录制框高</span><input id="record-frame-height" type="number" min="64" step="1" value="720"></label>
+                </div>
+                <div class="actions">
+                    <button id="apply-btn" type="button" class="ghost">应用参数</button>
+                    <button id="record-btn" type="button">开始录制</button>
+                    <button id="stop-btn" type="button" class="ghost" disabled>停止并下载</button>
+                    <button id="reset-btn" type="button" class="ghost">重建默认</button>
+                </div>
+            </details>
+        </section>
+
+        <section id="stage" class="stage-wrap">
+            <canvas id="stage-canvas"></canvas>
+            <button id="stage-panel-toggle" class="stage-panel-toggle" type="button" aria-expanded="true">收起参数</button>
+            <div class="hud">
+                <span id="status-text">状态：待机</span>
+                <span id="mode-text">模式：拖拽</span>
+                <span id="time-text">00:00.000</span>
+            </div>
+            <div class="timeline-dock">
+                <div class="timeline-grid">
+                    <label class="field"><span>时间轴时长(s)</span><input id="timeline-duration" type="number" min="1" max="1200" step="0.5" value="8"></label>
+                    <label class="field"><span>当前时间(s)</span><input id="timeline-time" type="number" min="0" step="0.01" value="0"></label>
+                    <label class="field"><span>范围开始</span><input id="range-start" type="number" min="0" step="0.01" value="0"></label>
+                    <label class="field"><span>范围结束</span><input id="range-end" type="number" min="0.01" step="0.01" value="8"></label>
+                    <label class="field"><span>时间轴缩放</span><input id="timeline-zoom" type="number" min="1" max="20" step="0.1" value="1"></label>
+                    <label class="field field--toggle"><span>吸附</span><input id="timeline-snap" type="checkbox" checked></label>
+                    <label class="field field--full"><span>时间轴</span><input id="timeline-slider" type="range" min="0" max="8" step="0.01" value="0"></label>
+                    <canvas id="timeline-track" class="timeline-track field--full" height="150"></canvas>
+                </div>
+                <button id="play-btn" type="button" class="ghost">播放时间轴</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="../curtain-physics/matter.min.js"></script>
+    <script src="./app.js"></script>
+</body>
+</html>

@@ -29,17 +29,19 @@ textarea {
 .layout {
     min-height: 100vh;
     display: grid;
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: 1fr 320px;
 }
 
 .layout.is-panel-collapsed {
-    grid-template-columns: 0 1fr;
+    grid-template-columns: 1fr 0;
 }
 
 .panel {
+    grid-column: 2;
+    grid-row: 1;
     padding: 28px 22px;
     background: var(--panel-bg);
-    border-right: 1px solid var(--panel-border);
+    border-left: 1px solid var(--panel-border);
     display: flex;
     flex-direction: column;
     gap: 18px;
@@ -50,7 +52,7 @@ textarea {
 .layout.is-panel-collapsed .panel {
     padding-left: 0;
     padding-right: 0;
-    border-right-color: transparent;
+    border-left-color: transparent;
     opacity: 0;
     pointer-events: none;
 }
@@ -162,6 +164,8 @@ button:last-child {
 }
 
 .stage-wrap {
+    grid-column: 1;
+    grid-row: 1;
     position: relative;
     min-height: 100vh;
     overflow: hidden;
