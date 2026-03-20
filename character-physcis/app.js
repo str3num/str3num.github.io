@@ -200,6 +200,10 @@ const state = {
         lastSampleAt: 0,
         recordCanvas: null,
         recordCtx: null,
+        captureTrack: null,
+        frameByFrame: true,
+        stepping: false,
+        stepIntervalMs: 33.3333,
         prevRangeStart: 0,
         prevRangeEnd: globalDefaults.timelineDuration
     },
@@ -1059,16 +1063,13 @@ function applyTimelineToBodies() {
     });
 }
 
-function sampleRecordingFrame(now) {
-    if (!state.recording.active) {
-        return;
-    }
-    const fps = clamp(controls.recordFps.value, 12, 60, 30);
-    const interval = 1000 / fps;
-    if (now - state.recording.lastSampleAt < interval) {
-        return;
-    }
-    state.recording.lastSampleAt = now;
+function sleep(ms) {
+    return new Promise((resolve) => {
+        window.setTimeout(resolve, Math.max(0, ms));
+    });
+}
+
+function pushRecordingSample(sampleTimeSec) {
     const chars = [];
     state.strands.forEach((strand) => {
         strand.nodes.forEach((node) => {
@@ -1082,13 +1083,76 @@ function sampleRecordingFrame(now) {
         });
     });
     state.recording.frames.push({
-        t: Number(((now - state.recording.startAt) / 1000).toFixed(4)),
+        t: Number(sampleTimeSec.toFixed(4)),
         timelineTime: Number(state.timeline.currentTime.toFixed(4)),
         chars
     });
 }
 
+function sampleRecordingFrame(now) {
+    if (!state.recording.active) {
+        return;
+    }
+    const fps = clamp(controls.recordFps.value, 12, 60, 30);
+    const interval = 1000 / fps;
+    if (now - state.recording.lastSampleAt < interval) {
+        return;
+    }
+    state.recording.lastSampleAt = now;
+    pushRecordingSample((now - state.recording.startAt) / 1000);
+}
+
+function renderOneRecordingStep(timeValue) {
+    setTimelineTime(timeValue);
+    rebuildIfNeeded();
+    applyTimelineToBodies();
+    applyUpright();
+    if (repairInvalidBodies()) {
+        rebuildIfNeeded(true);
+        applyTimelineToBodies();
+    }
+    drawScene();
+    updateRecordCanvas();
+    drawOverlay();
+    drawTimelineTrack();
+    timeText.textContent = formatTime(state.timeline.currentTime * 1000);
+    pushRecordingSample(state.timeline.currentTime);
+    if (state.recording.captureTrack && typeof state.recording.captureTrack.requestFrame === "function") {
+        state.recording.captureTrack.requestFrame();
+    }
+}
+
+async function runFrameByFrameRecording() {
+    if (state.recording.stepping) {
+        return;
+    }
+    state.recording.stepping = true;
+    try {
+        const fps = clamp(controls.recordFps.value, 12, 60, 30);
+        const dt = 1 / fps;
+        const intervalMs = state.recording.stepIntervalMs;
+
+        renderOneRecordingStep(0);
+        while (state.recording.active) {
+            if (state.timeline.currentTime >= state.timeline.duration - 0.0005) {
+                statusText.textContent = "状态：渲染完成，等待停止下载";
+                await sleep(120);
+                continue;
+            }
+            const next = Math.min(state.timeline.duration, state.timeline.currentTime + dt);
+            renderOneRecordingStep(next);
+            await sleep(intervalMs);
+        }
+    } finally {
+        state.recording.stepping = false;
+    }
+}
+
 function render(now) {
+    if (state.recording.active && state.recording.frameByFrame) {
+        requestAnimationFrame(render);
+        return;
+    }
     updateTimeline(now);
     const forceRebuild = state.timeline.forceRebuild;
     state.timeline.forceRebuild = false;
@@ -1137,9 +1201,6 @@ function render(now) {
     if (state.recording.active) {
         timeText.textContent = formatTime(now - state.recording.startAt);
         sampleRecordingFrame(now);
-        if (state.timeline.currentTime >= state.timeline.duration - 0.0005) {
-            stopRecording();
-        }
     }
     requestAnimationFrame(render);
 }
@@ -1667,7 +1728,8 @@ function startRecording() {
     updateRecordCanvas();
 
     const mimeType = getVideoMimeType();
-    const stream = recordCanvas.captureStream(fps);
+    const stream = recordCanvas.captureStream(0);
+    const captureTrack = stream.getVideoTracks()[0] || null;
     const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate });
 
     state.recording.prevRangeStart = state.timeline.rangeStart;
@@ -1678,12 +1740,16 @@ function startRecording() {
     state.recording.frames = [];
     state.recording.lastSampleAt = 0;
     state.recording.mediaRecorder = recorder;
-    state.timeline.playing = true;
+    state.recording.captureTrack = captureTrack;
+    state.recording.frameByFrame = !!(captureTrack && typeof captureTrack.requestFrame === "function");
+    state.recording.stepIntervalMs = 1000 / fps;
+    state.timeline.playing = false;
     state.timeline.lastNow = 0;
     state.timeline.rangeStart = 0;
     state.timeline.rangeEnd = state.timeline.duration;
     setTimelineTime(0);
-    controls.playBtn.textContent = "暂停时间轴";
+    controls.playBtn.textContent = "播放时间轴";
+    statusText.textContent = state.recording.frameByFrame ? "状态：逐帧渲染中" : "状态：录制中（实时）";
 
     recorder.addEventListener("dataavailable", (event) => {
         if (event.data && event.data.size > 0) {
@@ -1695,9 +1761,12 @@ function startRecording() {
         const now = new Date();
         const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
         const video = new Blob(state.recording.chunks, { type: mimeType });
+        const recordedDuration = state.recording.frames.length > 0
+            ? state.recording.frames[state.recording.frames.length - 1].timelineTime
+            : 0;
         const meta = {
             version: 1,
-            duration: Number(((performance.now() - state.recording.startAt) / 1000).toFixed(4)),
+            duration: Number(recordedDuration.toFixed(4)),
             timelineDuration: state.timeline.duration,
             output: { width: outputWidth, height: outputHeight },
             recordFrame: getRecordFrame(),
@@ -1709,10 +1778,18 @@ function startRecording() {
         downloadBlob(`character-physics-${stamp}.json`, new Blob([JSON.stringify(meta, null, 2)], { type: "application/json" }));
         state.recording.recordCanvas = null;
         state.recording.recordCtx = null;
+        state.recording.captureTrack = null;
     });
 
     recorder.start();
     setRecordUi(true);
+    if (state.recording.frameByFrame) {
+        runFrameByFrameRecording();
+    } else {
+        // fallback: browser does not support requestFrame, keep existing realtime path
+        state.timeline.playing = true;
+        controls.playBtn.textContent = "暂停时间轴";
+    }
 }
 
 function stopRecording() {
@@ -1734,6 +1811,7 @@ function stopRecording() {
     setRecordUi(false);
     state.recording.mediaRecorder.stop();
     state.recording.mediaRecorder = null;
+    state.recording.captureTrack = null;
 }
 
 stage.addEventListener("contextmenu", (event) => event.preventDefault());
