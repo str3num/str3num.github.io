@@ -94,6 +94,26 @@ textarea {
     color: var(--muted);
 }
 
+.collapsible {
+    border: 1px solid var(--panel-border);
+    padding: 10px 12px;
+}
+
+.collapsible summary {
+    cursor: pointer;
+    color: var(--text);
+    font-size: 14px;
+    user-select: none;
+}
+
+.collapsible[open] summary {
+    margin-bottom: 8px;
+}
+
+.collapsible > .field {
+    margin-top: 0;
+}
+
 .field {
     display: flex;
     flex-direction: column;
@@ -104,6 +124,30 @@ textarea {
 .field label > span {
     font-size: 14px;
     color: var(--muted);
+}
+
+.field__inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.field__inline input[type="range"] {
+    flex: 1;
+}
+
+.field__inline input[type="number"] {
+    width: 84px;
+    flex: 0 0 auto;
+    text-align: right;
+}
+
+.key4-settings[hidden] {
+    display: none !important;
+}
+
+.field[hidden] {
+    display: none !important;
 }
 
 textarea,
@@ -150,6 +194,16 @@ input[type="color"] {
     gap: 10px;
 }
 
+.digit-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.digit-shortcuts button {
+    padding: 8px 0;
+}
+
 button {
     border: 1px solid var(--text);
     background: var(--text);
@@ -171,6 +225,24 @@ button:last-child {
     overflow: hidden;
     background: var(--bg);
     cursor: grab;
+}
+
+@media (min-width: 961px) {
+    .layout {
+        height: 100vh;
+        min-height: 100vh;
+    }
+
+    .panel {
+        height: 100vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .stage-wrap {
+        height: 100vh;
+        min-height: 100vh;
+    }
 }
 
 .stage-wrap.is-left-down {
@@ -249,19 +321,6 @@ button:last-child {
     will-change: transform;
     user-select: none;
     white-space: pre;
-}
-
-.hud {
-    position: absolute;
-    right: 24px;
-    bottom: 20px;
-    display: flex;
-    gap: 14px;
-    padding: 10px 14px;
-    border: 1px solid var(--panel-border);
-    background: rgba(255, 255, 255, 0.76);
-    color: var(--muted);
-    font-size: 13px;
 }
 
 @media (max-width: 960px) {

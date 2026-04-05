@@ -13,25 +13,32 @@
                 <button id="panel-toggle" class="panel__toggle" type="button" aria-expanded="true">收起</button>
                 <p class="panel__eyebrow">Physics Curtain</p>
                 <h1>文字门帘</h1>
-                <p class="panel__intro">
-                    右键打开菜单<br>
-                    - 拖拽：抓住最近文字拖动<br>
-                    - 拨动：按鼠标移动速度给半径内文字施力<br>
-                    - 切断：按半径切断绳线（含额外连线）<br>
-                    此时<b>左键</b>点击菜单选择<br>
-                    <br>
-                    当模式为拖拽时，右键菜单变为<br>
-                    - 钉住：把当前字固定在当前锚点（未固定状态）<br>
-                    - 解除钉住：仅在该字已钉住时显示，点击后解除该字钉住（固定状态）<br>
-                    - 连线：固定当前字，下一次左键点另一个字创建额外连线<br>
-                    此时<b>右键</b>点击菜单选项选择
-                </p>
+                <details class="collapsible" open>
+                    <summary>操作说明</summary>
+                    <p class="panel__intro">
+                        右键打开菜单<br>
+                        - 拖拽：抓住最近文字拖动<br>
+                        - 拨动：按鼠标移动速度给半径内文字施力<br>
+                        - 切断：按半径切断绳线（含额外连线）<br>
+                        此时<b>左键</b>点击菜单选择<br>
+                        <br>
+                        当模式为拖拽时，右键菜单变为<br>
+                        - 钉住：把当前字固定在当前锚点（未固定状态）<br>
+                        - 解除钉住：仅在该字已钉住时显示，点击后解除该字钉住（固定状态）<br>
+                        - 连线：固定当前字，下一次左键点另一个字创建额外连线<br>
+                        此时<b>右键</b>点击菜单选项选择<br>
+                        <br>
+                        键盘：1-9 均可作为快捷键；每个数字键可分别配置模式与参数
+                    </p>
+                </details>
             </div>
 
-            <label class="field">
-                <span>文字内容</span>
-                <textarea id="text-input" rows="12"></textarea>
-            </label>
+            <details class="collapsible" open>
+                <summary>文字内容</summary>
+                <label class="field">
+                    <textarea id="text-input" rows="12"></textarea>
+                </label>
+            </details>
 
             <div class="field">
                 <span>导入文本</span>
@@ -68,8 +75,11 @@
                     <input id="group-gap" type="range" min="10" max="150" value="84">
                 </label>
                 <label>
-                    <span>地面高度</span>
-                    <input id="ground-height" type="range" min="20" max="280" value="92">
+                    <span>地面高度（距顶部）</span>
+                    <div class="field__inline">
+                        <input id="ground-height" type="range" min="0" max="4000" value="620">
+                        <input id="ground-height-number" type="number" min="0" max="4000" value="620" step="1">
+                    </div>
                 </label>
                 <label>
                     <span>风场半径</span>
@@ -126,6 +136,99 @@
                 <button id="apply-button" type="button">应用配置</button>
                 <button id="reset-button" type="button">恢复默认</button>
             </div>
+
+
+
+            <details class="collapsible">
+                <summary>数字键配置（1-9）</summary>
+                <p class="panel__intro">数字 1 固定：恢复默认状态（不参与自定义配置）。</p>
+                <div class="field">
+                    <span>配置键位</span>
+                    <select id="key-bind-target">
+                        <option value="1">1（固定：恢复默认）</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                    </select>
+                </div>
+                <div id="key-mode-field" class="field">
+                    <span>模式</span>
+                    <select id="key4-mode">
+                        <option value="hand">拖拽</option>
+                        <option value="wind">拨动</option>
+                        <option value="cut">切断</option>
+                        <option value="physics">物理参数改变</option>
+                    </select>
+                </div>
+
+                <p class="panel__intro">说明：先选择键位，再设置该键位专属模式与参数。</p>
+
+                <div id="key4-wind-settings" class="field field--grid key4-settings" hidden>
+                    <label>
+                        <span>风场半径</span>
+                        <input id="key4-wind-radius" type="number" min="70" max="520" step="1" value="180">
+                    </label>
+                    <label>
+                        <span>风场强度</span>
+                        <input id="key4-wind-strength" type="number" min="0.0002" max="0.05" step="0.0002" value="0.0024">
+                    </label>
+                </div>
+
+                <div id="key4-cut-settings" class="field key4-settings" hidden>
+                    <label>
+                        <span>切断半径</span>
+                        <input id="key4-cut-radius" type="number" min="8" max="120" step="1" value="34">
+                    </label>
+                </div>
+
+                <div id="key4-physics-settings" class="field field--grid key4-settings" hidden>
+                    <label>
+                        <span>重力 Y (gravity.y)</span>
+                        <input id="key4-gravity-y" type="number" value="2">
+                    </label>
+                    <label>
+                        <span>密度 (density)</span>
+                        <input id="key4-body-density" type="number" value="0.0025">
+                    </label>
+                    <label>
+                        <span>空气阻力 (frictionAir)</span>
+                        <input id="key4-body-friction-air" type="number" value="0.01">
+                    </label>
+                    <label>
+                        <span>弹性 (restitution)</span>
+                        <input id="key4-body-restitution" type="number" value="0.1">
+                    </label>
+                    <label>
+                        <span>碰撞半径倍率 (collisionPadding)</span>
+                        <input id="key4-body-collision-padding" type="number" value="0.34">
+                    </label>
+                    <label>
+                        <span>拖拽半径 (handRadius)</span>
+                        <input id="key4-body-hand-radius" type="number" value="54">
+                    </label>
+                    <label>
+                        <span>拖拽刚度 (dragStiffness)</span>
+                        <input id="key4-body-drag-stiffness" type="number" value="0.18">
+                    </label>
+                    <label>
+                        <span>拖拽阻尼 (dragDamping)</span>
+                        <input id="key4-body-drag-damping" type="number" value="0.12">
+                    </label>
+                    <label>
+                        <span>回正刚度 (uprightStiffness)</span>
+                        <input id="key4-body-upright-stiffness" type="number" value="0.08">
+                    </label>
+                    <label>
+                        <span>回正角阻尼 (uprightAngularDamping)</span>
+                        <input id="key4-body-upright-angular-damping" type="number" value="0.84">
+                    </label>
+                </div>
+            </details>
         </section>
 
         <section class="stage-wrap">
@@ -140,10 +243,6 @@
             <div id="drag-menu" class="mode-menu" hidden>
                 <button type="button" data-drag-action="pin">钉住</button>
                 <button type="button" data-drag-action="connect">连线</button>
-            </div>
-            <div class="hud">
-                <span id="mode-indicator">当前模式：拖拽</span>
-                <span>右键：模式菜单</span>
             </div>
         </section>
     </main>

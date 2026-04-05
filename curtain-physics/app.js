@@ -27,7 +27,7 @@ const CONFIG = {
         charGap: 42,
         columnGap: 54,
         groupGap: 84,
-        groundHeight: 92,
+        groundHeight: 620,
         windRadius: 180,
         windStrength: 0.0024,
         autoWindEnabled: false,
@@ -85,6 +85,7 @@ const charGapInput = document.getElementById("char-gap");
 const columnGapInput = document.getElementById("column-gap");
 const groupGapInput = document.getElementById("group-gap");
 const groundHeightInput = document.getElementById("ground-height");
+const groundHeightNumberInput = document.getElementById("ground-height-number");
 const windRadiusInput = document.getElementById("wind-radius");
 const windStrengthInput = document.getElementById("wind-strength");
 const autoWindEnabledInput = document.getElementById("auto-wind-enabled");
@@ -95,8 +96,28 @@ const collisionEnabledInput = document.getElementById("collision-enabled");
 const uprightEnabledInput = document.getElementById("upright-enabled");
 const backgroundColorInput = document.getElementById("background-color");
 const textColorInput = document.getElementById("text-color");
+const key4ModeInput = document.getElementById("key4-mode");
+const keyBindTargetInput = document.getElementById("key-bind-target");
+const keyModeField = document.getElementById("key-mode-field");
+const key4WindSettings = document.getElementById("key4-wind-settings");
+const key4CutSettings = document.getElementById("key4-cut-settings");
+const key4PhysicsSettings = document.getElementById("key4-physics-settings");
+const key4WindRadiusInput = document.getElementById("key4-wind-radius");
+const key4WindStrengthInput = document.getElementById("key4-wind-strength");
+const key4CutRadiusInput = document.getElementById("key4-cut-radius");
+const key4GravityYInput = document.getElementById("key4-gravity-y");
+const key4BodyDensityInput = document.getElementById("key4-body-density");
+const key4BodyFrictionAirInput = document.getElementById("key4-body-friction-air");
+const key4BodyRestitutionInput = document.getElementById("key4-body-restitution");
+const key4BodyCollisionPaddingInput = document.getElementById("key4-body-collision-padding");
+const key4BodyHandRadiusInput = document.getElementById("key4-body-hand-radius");
+const key4BodyDragStiffnessInput = document.getElementById("key4-body-drag-stiffness");
+const key4BodyDragDampingInput = document.getElementById("key4-body-drag-damping");
+const key4BodyUprightStiffnessInput = document.getElementById("key4-body-upright-stiffness");
+const key4BodyUprightAngularDampingInput = document.getElementById("key4-body-upright-angular-damping");
 const applyButton = document.getElementById("apply-button");
 const resetButton = document.getElementById("reset-button");
+const digitShortcuts = document.querySelector(".digit-shortcuts");
 const layout = document.querySelector(".layout");
 const panelToggle = document.getElementById("panel-toggle");
 const stagePanelToggle = document.getElementById("stage-panel-toggle");
@@ -107,6 +128,7 @@ const dragMenu = document.getElementById("drag-menu");
 const threadCanvas = document.getElementById("thread-canvas");
 const letterLayer = document.getElementById("letter-layer");
 const threadCtx = threadCanvas.getContext("2d");
+const KEY_CONFIG_STORAGE_KEY = "curtain-physics-digit-key-configs-v1";
 
 const engine = Engine.create({
     gravity: { x: 0, y: 2 }
@@ -156,6 +178,7 @@ charGapInput.value = String(CONFIG.defaults.charGap);
 columnGapInput.value = String(CONFIG.defaults.columnGap);
 groupGapInput.value = String(CONFIG.defaults.groupGap);
 groundHeightInput.value = String(CONFIG.defaults.groundHeight);
+groundHeightNumberInput.value = String(CONFIG.defaults.groundHeight);
 windRadiusInput.value = String(CONFIG.defaults.windRadius);
 windStrengthInput.value = String(CONFIG.defaults.windStrength);
 autoWindEnabledInput.checked = CONFIG.defaults.autoWindEnabled;
@@ -228,6 +251,11 @@ function resizeStage() {
     threadCanvas.width = Math.floor(rect.width * state.dpr);
     threadCanvas.height = Math.floor(rect.height * state.dpr);
     threadCtx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+    const groundHeightMax = Math.max(4000, Math.floor(state.height * 3));
+    groundHeightInput.max = String(groundHeightMax);
+    groundHeightNumberInput.max = String(groundHeightMax);
+    groundHeightInput.min = "0";
+    groundHeightNumberInput.min = "0";
 }
 
 function clearWorld() {
@@ -272,9 +300,11 @@ function updateModeIndicator() {
         wind: "当前模式：风场",
         cut: "当前模式：切断"
     };
-    modeIndicator.textContent = state.pendingLinkSourceBody
-        ? "连线模式：请选择第二个字"
-        : labels[state.pointer.toolMode];
+    if (modeIndicator) {
+        modeIndicator.textContent = state.pendingLinkSourceBody
+            ? "连线模式：请选择第二个字"
+            : labels[state.pointer.toolMode];
+    }
     stage.classList.toggle("is-cut-mode", state.pointer.toolMode === "cut");
 }
 
@@ -422,7 +452,8 @@ function createLetterBody(x, y, fontSize, visible, char) {
 }
 
 function createGround() {
-    const groundY = state.height - state.options.groundHeight;
+    const groundHeightMax = Math.max(4000, state.height * 3);
+    const groundY = Math.max(0, Math.min(groundHeightMax, state.options.groundHeight));
     state.groundBody = Bodies.rectangle(
         state.width / 2,
         groundY + 18,
@@ -963,6 +994,302 @@ function getStagePoint(event) {
     return { x, y, inside };
 }
 
+function isEditableTarget(target) {
+    return target instanceof Element
+        && Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+}
+
+function clampValue(value, min, max, fallback) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        return fallback;
+    }
+    return Math.max(min, Math.min(max, parsed));
+}
+
+function toFiniteNumber(value, fallback) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function readKey4BodyConfigFromInputs() {
+    return {
+        gravityY: toFiniteNumber(key4GravityYInput.value, engine.gravity.y),
+        density: toFiniteNumber(key4BodyDensityInput.value, CONFIG.body.density),
+        frictionAir: toFiniteNumber(key4BodyFrictionAirInput.value, CONFIG.body.frictionAir),
+        restitution: toFiniteNumber(key4BodyRestitutionInput.value, CONFIG.body.restitution),
+        collisionPadding: toFiniteNumber(key4BodyCollisionPaddingInput.value, CONFIG.body.collisionPadding),
+        handRadius: toFiniteNumber(key4BodyHandRadiusInput.value, CONFIG.body.handRadius),
+        dragStiffness: toFiniteNumber(key4BodyDragStiffnessInput.value, CONFIG.body.dragStiffness),
+        dragDamping: toFiniteNumber(key4BodyDragDampingInput.value, CONFIG.body.dragDamping),
+        uprightStiffness: toFiniteNumber(key4BodyUprightStiffnessInput.value, CONFIG.body.uprightStiffness),
+        uprightAngularDamping: toFiniteNumber(key4BodyUprightAngularDampingInput.value, CONFIG.body.uprightAngularDamping)
+    };
+}
+
+function writeKey4BodyConfigToInputs(bodyConfig) {
+    key4GravityYInput.value = String(bodyConfig.gravityY);
+    key4BodyDensityInput.value = String(bodyConfig.density);
+    key4BodyFrictionAirInput.value = String(bodyConfig.frictionAir);
+    key4BodyRestitutionInput.value = String(bodyConfig.restitution);
+    key4BodyCollisionPaddingInput.value = String(bodyConfig.collisionPadding);
+    key4BodyHandRadiusInput.value = String(bodyConfig.handRadius);
+    key4BodyDragStiffnessInput.value = String(bodyConfig.dragStiffness);
+    key4BodyDragDampingInput.value = String(bodyConfig.dragDamping);
+    key4BodyUprightStiffnessInput.value = String(bodyConfig.uprightStiffness);
+    key4BodyUprightAngularDampingInput.value = String(bodyConfig.uprightAngularDamping);
+}
+
+function getDefaultDigitConfig() {
+    return {
+        mode: "hand",
+        windRadius: CONFIG.defaults.windRadius,
+        windStrength: CONFIG.defaults.windStrength,
+        cutRadius: CONFIG.defaults.cutRadius,
+        body: {
+            gravityY: engine.gravity.y,
+            density: CONFIG.body.density,
+            frictionAir: CONFIG.body.frictionAir,
+            restitution: CONFIG.body.restitution,
+            collisionPadding: CONFIG.body.collisionPadding,
+            handRadius: CONFIG.body.handRadius,
+            dragStiffness: CONFIG.body.dragStiffness,
+            dragDamping: CONFIG.body.dragDamping,
+            uprightStiffness: CONFIG.body.uprightStiffness,
+            uprightAngularDamping: CONFIG.body.uprightAngularDamping
+        }
+    };
+}
+
+function sanitizeDigitConfig(rawConfig) {
+    const defaults = getDefaultDigitConfig();
+    const config = rawConfig && typeof rawConfig === "object" ? rawConfig : {};
+    const mode = config.mode === "wind" || config.mode === "cut" || config.mode === "physics"
+        ? config.mode
+        : "hand";
+    return {
+        mode,
+        windRadius: clampValue(config.windRadius, 70, 520, defaults.windRadius),
+        windStrength: clampValue(config.windStrength, 0.0002, 0.05, defaults.windStrength),
+        cutRadius: clampValue(config.cutRadius, 8, 120, defaults.cutRadius),
+        body: {
+            gravityY: toFiniteNumber(config?.body?.gravityY, defaults.body.gravityY),
+            density: toFiniteNumber(config?.body?.density, defaults.body.density),
+            frictionAir: toFiniteNumber(config?.body?.frictionAir, defaults.body.frictionAir),
+            restitution: toFiniteNumber(config?.body?.restitution, defaults.body.restitution),
+            collisionPadding: toFiniteNumber(config?.body?.collisionPadding, defaults.body.collisionPadding),
+            handRadius: toFiniteNumber(config?.body?.handRadius, defaults.body.handRadius),
+            dragStiffness: toFiniteNumber(config?.body?.dragStiffness, defaults.body.dragStiffness),
+            dragDamping: toFiniteNumber(config?.body?.dragDamping, defaults.body.dragDamping),
+            uprightStiffness: toFiniteNumber(config?.body?.uprightStiffness, defaults.body.uprightStiffness),
+            uprightAngularDamping: toFiniteNumber(config?.body?.uprightAngularDamping, defaults.body.uprightAngularDamping)
+        }
+    };
+}
+
+function readAllDigitConfigs() {
+    try {
+        const raw = localStorage.getItem(KEY_CONFIG_STORAGE_KEY);
+        if (!raw) {
+            return {};
+        }
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeAllDigitConfigs(configs) {
+    localStorage.setItem(KEY_CONFIG_STORAGE_KEY, JSON.stringify(configs));
+}
+
+function readDigitConfig(digit) {
+    const allConfigs = readAllDigitConfigs();
+    return sanitizeDigitConfig(allConfigs[digit]);
+}
+
+function writeDigitConfig(digit, config) {
+    const allConfigs = readAllDigitConfigs();
+    allConfigs[digit] = sanitizeDigitConfig(config);
+    writeAllDigitConfigs(allConfigs);
+}
+
+function setKey4ModeFields(mode) {
+    key4WindSettings.hidden = mode !== "wind";
+    key4CutSettings.hidden = mode !== "cut";
+    key4PhysicsSettings.hidden = mode !== "physics";
+}
+
+function refreshDigitTargetUi() {
+    const isFixedDefault = keyBindTargetInput.value === "1";
+    if (keyModeField) {
+        keyModeField.hidden = isFixedDefault;
+    }
+    if (isFixedDefault) {
+        key4WindSettings.hidden = true;
+        key4CutSettings.hidden = true;
+        key4PhysicsSettings.hidden = true;
+        return;
+    }
+    setKey4ModeFields(key4ModeInput.value);
+}
+
+function loadKey4ConfigToControls() {
+    const config = readDigitConfig(keyBindTargetInput.value);
+    key4ModeInput.value = config.mode;
+    key4WindRadiusInput.value = String(config.windRadius);
+    key4WindStrengthInput.value = String(config.windStrength);
+    key4CutRadiusInput.value = String(config.cutRadius);
+    writeKey4BodyConfigToInputs(config.body);
+    refreshDigitTargetUi();
+}
+
+function saveKey4ConfigFromControls() {
+    const config = {
+        mode: key4ModeInput.value === "wind" || key4ModeInput.value === "cut" || key4ModeInput.value === "physics"
+            ? key4ModeInput.value
+            : "hand",
+        windRadius: clampValue(key4WindRadiusInput.value, 70, 520, CONFIG.defaults.windRadius),
+        windStrength: clampValue(key4WindStrengthInput.value, 0.0002, 0.05, CONFIG.defaults.windStrength),
+        cutRadius: clampValue(key4CutRadiusInput.value, 8, 120, CONFIG.defaults.cutRadius),
+        body: readKey4BodyConfigFromInputs()
+    };
+
+    key4WindRadiusInput.value = String(config.windRadius);
+    key4WindStrengthInput.value = String(config.windStrength);
+    key4CutRadiusInput.value = String(config.cutRadius);
+    writeKey4BodyConfigToInputs(config.body);
+    writeDigitConfig(keyBindTargetInput.value, config);
+}
+
+function applyKey4ConfigAction(digit) {
+    if (digit === "1") {
+        windRadiusInput.value = String(CONFIG.defaults.windRadius);
+        windStrengthInput.value = String(CONFIG.defaults.windStrength);
+        cutRadiusInput.value = String(CONFIG.defaults.cutRadius);
+        state.options.windRadius = CONFIG.defaults.windRadius;
+        state.options.windStrength = CONFIG.defaults.windStrength;
+        state.options.cutRadius = CONFIG.defaults.cutRadius;
+
+        CONFIG.body.density = 0.0025;
+        CONFIG.body.frictionAir = 0.01;
+        CONFIG.body.restitution = 0.1;
+        CONFIG.body.collisionPadding = 0.34;
+        CONFIG.body.handRadius = 54;
+        CONFIG.body.dragStiffness = 0.18;
+        CONFIG.body.dragDamping = 0.12;
+        CONFIG.body.uprightStiffness = 0.08;
+        CONFIG.body.uprightAngularDamping = 0.84;
+        engine.gravity.y = 2;
+        writeKey4BodyConfigToInputs({
+            gravityY: engine.gravity.y,
+            density: CONFIG.body.density,
+            frictionAir: CONFIG.body.frictionAir,
+            restitution: CONFIG.body.restitution,
+            collisionPadding: CONFIG.body.collisionPadding,
+            handRadius: CONFIG.body.handRadius,
+            dragStiffness: CONFIG.body.dragStiffness,
+            dragDamping: CONFIG.body.dragDamping,
+            uprightStiffness: CONFIG.body.uprightStiffness,
+            uprightAngularDamping: CONFIG.body.uprightAngularDamping
+        });
+
+        state.strands.forEach((strand) => {
+            strand.nodes.forEach((node) => {
+                if (!node.body) {
+                    return;
+                }
+                Body.setDensity(node.body, CONFIG.body.density);
+                node.body.frictionAir = CONFIG.body.frictionAir;
+                node.body.restitution = CONFIG.body.restitution;
+                const targetRadius = strand.fontSize * CONFIG.body.collisionPadding;
+                if (node.radius && targetRadius > 0) {
+                    const scale = targetRadius / node.radius;
+                    if (scale > 0) {
+                        Body.scale(node.body, scale, scale);
+                        node.radius = targetRadius;
+                    }
+                }
+            });
+        });
+
+        if (state.dragConstraint) {
+            state.dragConstraint.stiffness = CONFIG.body.dragStiffness;
+            state.dragConstraint.damping = CONFIG.body.dragDamping;
+        }
+        state.pinConstraints.forEach((constraint) => {
+            constraint.stiffness = CONFIG.body.dragStiffness;
+            constraint.damping = CONFIG.body.dragDamping;
+        });
+        removeHandBody();
+        updateModeIndicator();
+        closeMenus();
+        return;
+    }
+
+    const config = readDigitConfig(digit);
+
+    if (config.mode === "hand" || config.mode === "wind" || config.mode === "cut") {
+        state.pointer.toolMode = config.mode;
+    }
+
+    if (config.mode === "wind") {
+        windRadiusInput.value = String(config.windRadius);
+        windStrengthInput.value = String(config.windStrength);
+        state.options.windRadius = clampValue(config.windRadius, 70, 520, CONFIG.defaults.windRadius);
+        state.options.windStrength = clampValue(config.windStrength, 0.0002, 0.05, CONFIG.defaults.windStrength);
+    } else if (config.mode === "cut") {
+        cutRadiusInput.value = String(config.cutRadius);
+        state.options.cutRadius = clampValue(config.cutRadius, 8, 120, CONFIG.defaults.cutRadius);
+    } else if (config.mode === "physics") {
+        const bodyConfig = config.body;
+        CONFIG.body.density = bodyConfig.density;
+        CONFIG.body.frictionAir = bodyConfig.frictionAir;
+        CONFIG.body.restitution = bodyConfig.restitution;
+        CONFIG.body.collisionPadding = bodyConfig.collisionPadding;
+        CONFIG.body.handRadius = bodyConfig.handRadius;
+        CONFIG.body.dragStiffness = bodyConfig.dragStiffness;
+        CONFIG.body.dragDamping = bodyConfig.dragDamping;
+        CONFIG.body.uprightStiffness = bodyConfig.uprightStiffness;
+        CONFIG.body.uprightAngularDamping = bodyConfig.uprightAngularDamping;
+        engine.gravity.y = bodyConfig.gravityY;
+
+        state.strands.forEach((strand) => {
+            strand.nodes.forEach((node) => {
+                if (!node.body) {
+                    return;
+                }
+                Body.setDensity(node.body, CONFIG.body.density);
+                node.body.frictionAir = CONFIG.body.frictionAir;
+                node.body.restitution = CONFIG.body.restitution;
+                const targetRadius = strand.fontSize * CONFIG.body.collisionPadding;
+                if (node.radius && targetRadius > 0) {
+                    const scale = targetRadius / node.radius;
+                    if (scale > 0) {
+                        Body.scale(node.body, scale, scale);
+                        node.radius = targetRadius;
+                    }
+                }
+            });
+        });
+
+        if (state.dragConstraint) {
+            state.dragConstraint.stiffness = CONFIG.body.dragStiffness;
+            state.dragConstraint.damping = CONFIG.body.dragDamping;
+        }
+        state.pinConstraints.forEach((constraint) => {
+            constraint.stiffness = CONFIG.body.dragStiffness;
+            constraint.damping = CONFIG.body.dragDamping;
+        });
+        removeHandBody();
+    }
+
+    updateLetterStyles();
+    updateModeIndicator();
+    closeMenus();
+}
+
 function applyControls() {
     state.options.textMode = textModeInput.value === "text" ? "text" : "poetry";
     state.options.maxCharsPerStrand = clampMaxChars(Number(maxCharsPerStrandInput.value));
@@ -970,7 +1297,13 @@ function applyControls() {
     state.options.charGap = Number(charGapInput.value);
     state.options.columnGap = Number(columnGapInput.value);
     state.options.groupGap = Number(groupGapInput.value);
-    state.options.groundHeight = Number(groundHeightInput.value);
+    state.options.groundHeight = Math.max(
+        0,
+        Math.min(
+            Number(groundHeightInput.max) || Number(groundHeightNumberInput.max) || 4000,
+            Number(groundHeightNumberInput.value)
+        )
+    );
     state.options.windRadius = Number(windRadiusInput.value);
     state.options.windStrength = Number(windStrengthInput.value);
     state.options.autoWindEnabled = autoWindEnabledInput.checked;
@@ -984,6 +1317,7 @@ function applyControls() {
     maxCharsPerStrandInput.value = String(state.options.maxCharsPerStrand);
     fontSizeInput.value = String(state.options.fontSize);
     groundHeightInput.value = String(state.options.groundHeight);
+    groundHeightNumberInput.value = String(state.options.groundHeight);
     autoWindStrengthInput.value = String(state.options.autoWindStrength);
     autoWindFrequencyInput.value = String(state.options.autoWindFrequency);
     cutRadiusInput.value = String(state.options.cutRadius);
@@ -1000,6 +1334,7 @@ function resetControls() {
     columnGapInput.value = String(CONFIG.defaults.columnGap);
     groupGapInput.value = String(CONFIG.defaults.groupGap);
     groundHeightInput.value = String(CONFIG.defaults.groundHeight);
+    groundHeightNumberInput.value = String(CONFIG.defaults.groundHeight);
     windRadiusInput.value = String(CONFIG.defaults.windRadius);
     windStrengthInput.value = String(CONFIG.defaults.windStrength);
     autoWindEnabledInput.checked = CONFIG.defaults.autoWindEnabled;
@@ -1011,6 +1346,20 @@ function resetControls() {
     backgroundColorInput.value = CONFIG.defaults.backgroundColor;
     textColorInput.value = CONFIG.defaults.textColor;
     applyControls();
+}
+
+let applyScheduled = false;
+
+function scheduleApplyControls() {
+    if (applyScheduled) {
+        return;
+    }
+
+    applyScheduled = true;
+    requestAnimationFrame(() => {
+        applyScheduled = false;
+        applyControls();
+    });
 }
 
 stage.addEventListener("contextmenu", (event) => {
@@ -1139,6 +1488,37 @@ window.addEventListener("pointerdown", (event) => {
     closeMenus();
 }, true);
 
+window.addEventListener("keydown", (event) => {
+    if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+    }
+
+    const key = event.key;
+    const editable = isEditableTarget(event.target);
+    if (editable) {
+        return;
+    }
+
+    if (key === "1" || key === "2" || key === "3" || key === "4" || key === "5" || key === "6" || key === "7" || key === "8" || key === "9") {
+        applyKey4ConfigAction(key);
+        event.preventDefault();
+    }
+});
+
+if (digitShortcuts) {
+    digitShortcuts.addEventListener("click", (event) => {
+        const target = event.target.closest("button[data-digit]");
+        if (!target) {
+            return;
+        }
+
+        const key = target.dataset.digit;
+        if (key === "1" || key === "2" || key === "3" || key === "4" || key === "5" || key === "6" || key === "7" || key === "8" || key === "9") {
+            applyKey4ConfigAction(key);
+        }
+    });
+}
+
 modeMenu.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) {
         return;
@@ -1212,8 +1592,67 @@ fileInput.addEventListener("change", async (event) => {
 
 applyButton.addEventListener("click", applyControls);
 resetButton.addEventListener("click", resetControls);
-backgroundColorInput.addEventListener("input", applyControls);
-textColorInput.addEventListener("input", applyControls);
+key4ModeInput.addEventListener("change", () => {
+    refreshDigitTargetUi();
+    saveKey4ConfigFromControls();
+});
+keyBindTargetInput.addEventListener("change", loadKey4ConfigToControls);
+[
+    key4WindRadiusInput,
+    key4WindStrengthInput,
+    key4CutRadiusInput,
+    key4GravityYInput,
+    key4BodyDensityInput,
+    key4BodyFrictionAirInput,
+    key4BodyRestitutionInput,
+    key4BodyCollisionPaddingInput,
+    key4BodyHandRadiusInput,
+    key4BodyDragStiffnessInput,
+    key4BodyDragDampingInput,
+    key4BodyUprightStiffnessInput,
+    key4BodyUprightAngularDampingInput
+].forEach((control) => {
+    control.addEventListener("input", saveKey4ConfigFromControls);
+    control.addEventListener("change", saveKey4ConfigFromControls);
+});
+groundHeightInput.addEventListener("input", () => {
+    groundHeightNumberInput.value = groundHeightInput.value;
+    scheduleApplyControls();
+});
+groundHeightNumberInput.addEventListener("input", () => {
+    groundHeightInput.value = groundHeightNumberInput.value;
+    scheduleApplyControls();
+});
+[
+    textModeInput,
+    maxCharsPerStrandInput,
+    fontSizeInput,
+    charGapInput,
+    columnGapInput,
+    groupGapInput,
+    windRadiusInput,
+    windStrengthInput,
+    autoWindStrengthInput,
+    autoWindFrequencyInput,
+    cutRadiusInput,
+    backgroundColorInput,
+    textColorInput
+].forEach((control) => {
+    control.addEventListener("input", scheduleApplyControls);
+});
+[
+    textModeInput,
+    maxCharsPerStrandInput,
+    groundHeightInput,
+    groundHeightNumberInput,
+    autoWindEnabledInput,
+    collisionEnabledInput,
+    uprightEnabledInput,
+    backgroundColorInput,
+    textColorInput
+].forEach((control) => {
+    control.addEventListener("change", scheduleApplyControls);
+});
 window.addEventListener("resize", buildCurtain);
 
 Runner.run(runner, engine);
@@ -1227,4 +1666,5 @@ Runner.run(runner, engine);
 
 updateModeIndicator();
 setPanelCollapsed(false);
+loadKey4ConfigToControls();
 applyControls();
