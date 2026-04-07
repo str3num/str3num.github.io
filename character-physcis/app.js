@@ -44,6 +44,7 @@ const controls = {
     timelineTrack: document.getElementById("timeline-track"),
     timelineDock: document.getElementById("timeline-dock"),
     timelineToggle: document.getElementById("timeline-toggle"),
+    timelineFps: document.getElementById("timeline-fps"),
     timelineZoom: document.getElementById("timeline-zoom"),
     timelineSnap: document.getElementById("timeline-snap"),
     rangeStart: document.getElementById("range-start"),
@@ -106,6 +107,7 @@ const globalDefaults = {
     toolMode: "hand",
     collisionEnabled: true,
     uprightEnabled: false,
+    timelineFps: 30,
     timelineDuration: 8,
     outputWidth: 1920,
     outputHeight: 1080,
@@ -183,6 +185,8 @@ const state = {
         duration: globalDefaults.timelineDuration,
         rangeStart: 0,
         rangeEnd: globalDefaults.timelineDuration,
+        renderFps: globalDefaults.timelineFps,
+        carry: 0,
         zoom: 1,
         snapEnabled: true,
         playing: false,
@@ -915,6 +919,7 @@ function updateTimelineInputs() {
     controls.timelineTime.value = String(Number(state.timeline.currentTime.toFixed(3)));
     controls.rangeStart.value = String(Number(state.timeline.rangeStart.toFixed(3)));
     controls.rangeEnd.value = String(Number(state.timeline.rangeEnd.toFixed(3)));
+    controls.timelineFps.value = String(Math.round(state.timeline.renderFps));
     controls.timelineZoom.value = String(Number(state.timeline.zoom.toFixed(2)));
     controls.timelineSnap.checked = state.timeline.snapEnabled;
 }
@@ -939,9 +944,18 @@ function updateTimeline(now) {
     }
     const dt = (now - state.timeline.lastNow) / 1000;
     state.timeline.lastNow = now;
+    const fps = clamp(state.timeline.renderFps, 1, 240, globalDefaults.timelineFps);
+    const frameStep = 1 / fps;
+    state.timeline.carry += dt;
+    const steps = Math.floor(state.timeline.carry / frameStep);
+    if (steps <= 0) {
+        return;
+    }
+    state.timeline.carry -= steps * frameStep;
+    const advance = steps * frameStep;
     if (state.recording.active) {
         const duration = state.timeline.duration;
-        const nextRecordingTime = state.timeline.currentTime + dt;
+        const nextRecordingTime = state.timeline.currentTime + advance;
         if (nextRecordingTime >= duration) {
             setTimelineTime(duration);
             state.timeline.playing = false;
@@ -953,9 +967,10 @@ function updateTimeline(now) {
     }
     const rangeStart = clamp(state.timeline.rangeStart, 0, state.timeline.duration, 0);
     const rangeEnd = clamp(state.timeline.rangeEnd, rangeStart + 0.01, state.timeline.duration, state.timeline.duration);
-    let next = state.timeline.currentTime + dt;
+    let next = state.timeline.currentTime + advance;
     if (next > rangeEnd) {
-        next = rangeStart;
+        const span = Math.max(0.01, rangeEnd - rangeStart);
+        next = rangeStart + ((next - rangeStart) % span);
         state.timeline.forceRebuild = true;
         debugLog("timeline_wrap", {
             from: roundNum(state.timeline.currentTime, 4),
@@ -1610,6 +1625,7 @@ function applyGlobalControls() {
     state.options.collisionEnabled = controls.collisionEnabled.checked;
     state.options.uprightEnabled = controls.uprightEnabled.checked;
     state.timeline.duration = clamp(controls.timelineDuration.value, 1, 1200, globalDefaults.timelineDuration);
+    state.timeline.renderFps = clamp(controls.timelineFps.value, 1, 240, globalDefaults.timelineFps);
     state.timeline.zoom = clamp(controls.timelineZoom.value, 1, 20, 1);
     state.timeline.snapEnabled = controls.timelineSnap.checked;
     state.timeline.rangeStart = clamp(controls.rangeStart.value, 0, state.timeline.duration, 0);
@@ -1639,6 +1655,7 @@ function resetAll() {
     controls.timelineTime.value = "0";
     controls.timelineSlider.value = "0";
     controls.timelineSlider.max = String(globalDefaults.timelineDuration);
+    controls.timelineFps.value = String(globalDefaults.timelineFps);
     controls.timelineZoom.value = "1";
     controls.timelineSnap.checked = true;
     controls.rangeStart.value = "0";
@@ -1656,6 +1673,8 @@ function resetAll() {
     state.timeline.duration = globalDefaults.timelineDuration;
     state.timeline.rangeStart = 0;
     state.timeline.rangeEnd = globalDefaults.timelineDuration;
+    state.timeline.renderFps = globalDefaults.timelineFps;
+    state.timeline.carry = 0;
     state.timeline.zoom = 1;
     state.timeline.snapEnabled = true;
     state.timeline.playing = false;
@@ -1957,6 +1976,11 @@ controls.timelineDuration.addEventListener("input", () => {
     applyLayerToInputs(getSelectedLayer());
     rebuildIfNeeded(true);
 });
+controls.timelineFps.addEventListener("input", () => {
+    state.timeline.renderFps = clamp(controls.timelineFps.value, 1, 240, globalDefaults.timelineFps);
+    state.timeline.carry = 0;
+    updateTimelineInputs();
+});
 
 controls.timelineSlider.addEventListener("input", () => {
     state.timeline.playing = false;
@@ -1992,6 +2016,7 @@ controls.rangeEnd.addEventListener("input", () => {
 controls.playBtn.addEventListener("click", () => {
     state.timeline.playing = !state.timeline.playing;
     state.timeline.lastNow = 0;
+    state.timeline.carry = 0;
     controls.playBtn.textContent = state.timeline.playing ? "暂停时间轴" : "播放时间轴";
 });
 
