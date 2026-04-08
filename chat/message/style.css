@@ -60,6 +60,10 @@ body {
   align-items: center;
 }
 
+.persona-toolbar {
+  align-items: flex-start;
+}
+
 .field-group {
   display: flex;
   flex-direction: column;
@@ -78,7 +82,8 @@ label {
 
 input,
 select,
-button {
+button,
+textarea {
   font: inherit;
 }
 
@@ -217,4 +222,26 @@ button:disabled {
   .chat-display {
     height: 52vh;
   }
+}
+
+.reasoning-block {
+  margin: 6px 0 8px;
+  border: 1px dashed #cdb8a7;
+  border-radius: 8px;
+  background: #f9f3ed;
+  padding: 4px 8px;
+}
+
+.reasoning-block summary {
+  cursor: pointer;
+  color: #7d6f65;
+  font-size: 12px;
+}
+
+.reasoning-text {
+  margin-top: 6px;
+  color: #6c5d52;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }

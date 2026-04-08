@@ -48,10 +48,12 @@ const verifyState = {
   apiKey: "",
   model: ""
 };
+let isGenerating = false;
 
 let customPersonas = loadCustomPersonas();
 let sessions = loadSessions();
 let activeSessionId = loadActiveSessionId();
+const USER_TYPING_SPEED = 16;
 
 init();
 
@@ -228,18 +230,24 @@ async function verifyApiAndModel() {
   elements.verifyApiBtn.disabled = true;
 
   try {
+    const verifyBody = {
+      model,
+      messages: [{ role: "user", content: "ping" }],
+      max_tokens: 1,
+      stream: false
+    };
+
+    if (model === "deepseek-chat") {
+      verifyBody.thinking = { type: "enabled" };
+    }
+
     const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: "ping" }],
-        max_tokens: 1,
-        stream: false
-      })
+      body: JSON.stringify(verifyBody)
     });
 
     if (!response.ok) {
@@ -263,7 +271,12 @@ async function verifyApiAndModel() {
   }
 }
 
-function handleSend() {
+async function handleSend() {
+  if (isGenerating) {
+    appendSystemMessage("上一条回复生成中，请稍候。", true);
+    return;
+  }
+
   const content = elements.messageInput.value.trim();
   if (!content) {
     return;
@@ -289,11 +302,22 @@ function handleSend() {
   elements.messageInput.value = "";
   persist();
   renderSessionOptions();
-  renderMessages(session.messages);
+  renderMessages(session.messages, { animateLastUser: true });
+  await waitForTypingDone();
+  isGenerating = true;
+  elements.submitBtn.disabled = true;
+  elements.messageInput.disabled = true;
 
-  requestAssistantReply(session, verifyState.apiKey).catch((error) => {
-    appendSystemMessage(`请求失败：${error.message}`, true);
-  });
+  requestAssistantReply(session, verifyState.apiKey)
+    .catch((error) => {
+      appendSystemMessage(`请求失败：${error.message}`, true);
+    })
+    .finally(() => {
+      isGenerating = false;
+      elements.submitBtn.disabled = false;
+      elements.messageInput.disabled = false;
+      elements.messageInput.focus();
+    });
 }
 
 async function requestAssistantReply(session, apiKey) {
@@ -305,33 +329,69 @@ async function requestAssistantReply(session, apiKey) {
     ...session.messages.map((m) => ({ role: m.role, content: m.content }))
   ];
 
+  const requestBody = {
+    model,
+    messages: requestMessages,
+    stream: true
+  };
+
+  if (model === "deepseek-chat") {
+    requestBody.thinking = { type: "enabled" };
+  }
+
   const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`
     },
-    body: JSON.stringify({
-      model,
-      messages: requestMessages,
-      stream: false
-    })
+    body: JSON.stringify(requestBody)
   });
 
   waitNode.remove();
 
   if (!response.ok) {
+    waitNode.remove();
     const errText = await response.text();
     throw new Error(`HTTP ${response.status} ${errText}`);
   }
 
-  const data = await response.json();
-  const answer = data?.choices?.[0]?.message?.content?.trim();
-  if (!answer) {
+  waitNode.remove();
+
+  const assistantMessage = {
+    role: "assistant",
+    content: "",
+    reasoningContent: ""
+  };
+  session.messages.push(assistantMessage);
+  renderMessages(session.messages);
+
+  if (!response.body) {
+    throw new Error("浏览器不支持流式响应");
+  }
+
+  try {
+    await consumeChatStream(response, (delta) => {
+      if (typeof delta.reasoning_content === "string") {
+        assistantMessage.reasoningContent += delta.reasoning_content;
+      }
+      if (typeof delta.content === "string") {
+        assistantMessage.content += delta.content;
+      }
+      renderMessages(session.messages);
+    });
+  } catch (error) {
+    if (!assistantMessage.content.trim() && !assistantMessage.reasoningContent.trim()) {
+      session.messages.pop();
+      renderMessages(session.messages);
+    }
+    throw error;
+  }
+
+  if (!assistantMessage.content.trim()) {
     throw new Error("响应内容为空");
   }
 
-  session.messages.push({ role: "assistant", content: answer });
   session.updatedAt = Date.now();
   persist();
   renderSessionOptions();
@@ -388,9 +448,12 @@ function renderSessionOptions() {
   elements.sessionSelect.value = activeSessionId;
 }
 
-function renderMessages(messages) {
+function renderMessages(messages, options = {}) {
+  const { animateLastUser = false } = options;
+  const lastUserIndex = findLastMessageIndexByRole(messages, "user");
   elements.chatDisplay.innerHTML = "";
-  messages.forEach((message) => {
+
+  messages.forEach((message, idx) => {
     const wrapper = document.createElement("div");
     wrapper.className = `message message-${message.role}`;
 
@@ -398,15 +461,122 @@ function renderMessages(messages) {
     role.className = "message-role";
     role.textContent = message.role === "assistant" ? "AI" : "你";
 
-    const content = document.createElement("div");
-    content.textContent = message.content;
-
     wrapper.appendChild(role);
+
+    if (message.role === "assistant" && message.reasoningContent) {
+      const reasoning = document.createElement("details");
+      reasoning.className = "reasoning-block";
+      reasoning.open = true;
+
+      const summary = document.createElement("summary");
+      summary.textContent = "思考过程";
+      reasoning.appendChild(summary);
+
+      const reasoningText = document.createElement("div");
+      reasoningText.className = "reasoning-text";
+      reasoningText.textContent = message.reasoningContent;
+      reasoning.appendChild(reasoningText);
+
+      wrapper.appendChild(reasoning);
+    }
+
+    const content = document.createElement("div");
+    const shouldAnimateUser =
+      animateLastUser && message.role === "user" && idx === lastUserIndex;
+    content.textContent = shouldAnimateUser ? "" : message.content;
     wrapper.appendChild(content);
     elements.chatDisplay.appendChild(wrapper);
+
+    if (shouldAnimateUser) {
+      typeIntoElement(content, message.content, USER_TYPING_SPEED);
+    }
   });
 
   elements.chatDisplay.scrollTop = elements.chatDisplay.scrollHeight;
+}
+
+function typeIntoElement(target, text, speed = 16) {
+  target.setAttribute("data-typing", "1");
+  let index = 0;
+  const timer = setInterval(() => {
+    target.textContent += text[index];
+    index += 1;
+    elements.chatDisplay.scrollTop = elements.chatDisplay.scrollHeight;
+    if (index >= text.length) {
+      clearInterval(timer);
+      target.removeAttribute("data-typing");
+    }
+  }, speed);
+}
+
+function waitForTypingDone() {
+  return new Promise((resolve) => {
+    const poll = () => {
+      const typingNode = elements.chatDisplay.querySelector("[data-typing='1']");
+      if (!typingNode) {
+        resolve();
+        return;
+      }
+      setTimeout(poll, 20);
+    };
+    poll();
+  });
+}
+
+function findLastMessageIndexByRole(messages, role) {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i].role === role) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+async function consumeChatStream(response, onDelta) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    buffer = buffer.replace(/\r/g, "");
+    let splitIndex = buffer.indexOf("\n\n");
+    while (splitIndex !== -1) {
+      const chunk = buffer.slice(0, splitIndex);
+      buffer = buffer.slice(splitIndex + 2);
+      splitIndex = buffer.indexOf("\n\n");
+
+      const lines = chunk
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim());
+
+      if (lines.length === 0) {
+        continue;
+      }
+
+      const payload = lines.join("");
+      if (payload === "[DONE]") {
+        return;
+      }
+
+      try {
+        const json = JSON.parse(payload);
+        const delta = json?.choices?.[0]?.delta;
+        if (delta) {
+          onDelta(delta);
+        }
+      } catch (error) {
+        // Ignore malformed stream segments.
+      }
+    }
+  }
 }
 
 function appendSystemMessage(text, isError) {
@@ -500,7 +670,11 @@ function loadSessions() {
           messages: Array.isArray(item.messages)
             ? item.messages
                 .filter((m) => m && typeof m.content === "string" && (m.role === "user" || m.role === "assistant"))
-                .map((m) => ({ role: m.role, content: m.content }))
+                .map((m) => ({
+                  role: m.role,
+                  content: m.content,
+                  reasoningContent: typeof m.reasoningContent === "string" ? m.reasoningContent : ""
+                }))
             : []
         };
       });
