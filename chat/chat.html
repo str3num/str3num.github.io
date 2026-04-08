@@ -15,40 +15,59 @@
 </head>
 
 <body>
-    <div align="center">
-    <input type="image" 
-        src="image\001.gif" 
-        alt="111"
-        width="400"
-        height="400"
-        />
+    <div class="hero">
+        <input type="image" src="image\001.gif" alt="chat" width="220" height="220" />
     </div>
 
-    <div class="chat-container">
-        <div class="chat-display">
-            <!-- 对话展示框将在这里 -->
+    <div class="chat-container" id="app">
+        <div class="chat-toolbar">
+            <div class="field-group field-group-wide">
+                <label for="api-key-input">DeepSeek API Key（必要）</label>
+                <input id="api-key-input" type="password" placeholder="请输入 sk-...">
+            </div>
+            <div class="field-group">
+                <label for="model-select">模型</label>
+                <select id="model-select">
+                    <option value="deepseek-chat">deepseek-chat</option>
+                    <option value="deepseek-reasoner">deepseek-reasoner</option>
+                </select>
+            </div>
+            <div class="field-group">
+                <label>&nbsp;</label>
+                <button id="verify-api-btn" type="button">检查</button>
+            </div>
+            <div class="field-group">
+                <label>&nbsp;</label>
+                <span id="verify-status" class="verify-status">未检查</span>
+            </div>
         </div>
+        <div class="chat-toolbar">
+            <div class="field-group">
+                <label for="persona-select">人设</label>
+                <select id="persona-select"></select>
+                <button id="confirm-persona-btn" type="button">开始对话</button>
+            </div>
+            <div class="field-group field-group-wide">
+                <label for="persona-detail-input">人设详情（自定义可编辑）</label>
+                <textarea id="persona-detail-input" rows="3" placeholder="选择预设或输入自定义提示词"></textarea>
+            </div>
+        </div>
+
+        <div class="chat-session-bar">
+            <button id="new-session-btn" type="button">创建对话</button>
+            <select id="session-select"></select>
+            <button id="restore-session-btn" type="button">恢复对话</button>
+            <button id="delete-session-btn" type="button">删除对话</button>
+        </div>
+
+        <div class="chat-display" id="chat-display"></div>
+
         <div class="chat-input">
-            <input type="text" id="message-input" placeholder="直接点击“发送”可以搜索来自其他时空的碎片哦！">
-            <button id="submit-btn">发送</button>
+            <input type="text" id="message-input" placeholder="输入你的问题，回车或点击发送">
+            <button id="submit-btn" type="button">发送</button>
         </div>
     </div>
-
-    
-    <script src="message/answerMessage/answerMessage.js"></script>
-    <script src="message/sendMessage/sendMessage.js"></script>
-    <script src="message/chatContainer.js"></script>
-    <script src="message/link.js"></script>
-    <script src="message/main.js"></script>
-    <script src="message/waitingMessage.js"></script>
-    
-
-    <script>
-        // 在文档加载完成后调用 chatContainer 函数
-        window.onload = function() {
-            chatContainer();
-        };
-    </script>
+    <script src="message/app.js"></script>
 </body>
 
 </html>

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="终端模式页面">
+  <title>Terminal</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="terminal-shell" aria-label="终端窗口">
+    <header class="terminal-header">
+      <span class="dot dot-red"></span>
+      <span class="dot dot-yellow"></span>
+      <span class="dot dot-green"></span>
+      <span class="title">str3num@site:~</span>
+      <a class="back-link" href="../chat/chat.html">/chat</a>
+    </header>
+
+    <section id="terminal-output" class="terminal-output" aria-live="polite"></section>
+
+    <form id="terminal-form" class="terminal-input-row" autocomplete="off">
+      <label class="prompt" for="terminal-input">str3num@site:~$</label>
+      <input id="terminal-input" type="text" spellcheck="false" placeholder="输入 help 查看命令">
+    </form>
+  </main>
+
+  <script src="main.js"></script>
+</body>
+</html>
